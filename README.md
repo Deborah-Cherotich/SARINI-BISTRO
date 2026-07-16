@@ -55,8 +55,9 @@ browser and log in.
   order. Occupied tables (terracotta) jump back into their existing order.
 - **Order screen** — tap menu items by category to add them to the cart (items with
   a photo show it on the tile), adjust quantity/notes, then **Send to Kitchen**
-  (prints a kitchen ticket) and **Checkout** (choose payment method, prints a
-  customer receipt, frees the table).
+  (prints a kitchen ticket) and **Complete & Print Receipt** (payment itself is
+  handled at the hotel's counter, outside this app — this just closes the order,
+  prints the customer receipt, and frees the table).
 - **Admin** (admin role only) — edit menu categories/items/prices, upload/replace a
   photo per dish, manage tables, and create/deactivate staff accounts.
 - **Reports** (admin role only) — today's sales, a date-range summary, top-selling

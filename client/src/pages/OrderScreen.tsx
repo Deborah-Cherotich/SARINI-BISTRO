@@ -17,8 +17,6 @@ export function OrderScreen() {
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [printMode, setPrintMode] = useState<"kitchen" | "receipt" | null>(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "mpesa" | "card">("cash");
 
   async function loadMenu() {
     const data = await api.get<Category[]>("/menu");
@@ -102,11 +100,8 @@ export function OrderScreen() {
   async function checkout() {
     if (!order) return;
     try {
-      const updated = await api.post<Order>(`/orders/${order.id}/checkout`, {
-        payment_method: paymentMethod,
-      });
+      const updated = await api.post<Order>(`/orders/${order.id}/checkout`);
       setOrder(updated);
-      setCheckoutOpen(false);
       setPrintMode("receipt");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Checkout failed");
@@ -270,11 +265,11 @@ export function OrderScreen() {
                   Send to Kitchen
                 </button>
                 <button
-                  onClick={() => setCheckoutOpen(true)}
+                  onClick={checkout}
                   disabled={order.items.length === 0}
                   className="flex-1 py-2.5 rounded-md bg-sarini-yellow text-black font-semibold hover:bg-sarini-yellow-dark disabled:opacity-40"
                 >
-                  Checkout
+                  Complete & Print Receipt
                 </button>
               </div>
             )}
@@ -297,47 +292,6 @@ export function OrderScreen() {
           </div>
         </div>
       </div>
-
-      {checkoutOpen && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-40">
-          <div className="bg-sarini-panel rounded-xl p-6 w-full max-w-sm border border-black/40">
-            <h2 className="text-lg font-semibold text-white mb-4">Checkout</h2>
-            <div className="text-gray-300 mb-4">
-              Total due: <span className="text-sarini-yellow font-semibold">{formatMoney(order.total)}</span>
-            </div>
-            <label className="block text-sm text-gray-300 mb-2">Payment method</label>
-            <div className="flex gap-2 mb-6">
-              {(["cash", "mpesa", "card"] as const).map((method) => (
-                <button
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
-                  className={`flex-1 py-2 rounded-md text-sm uppercase ${
-                    paymentMethod === method
-                      ? "bg-sarini-yellow text-black font-semibold"
-                      : "bg-sarini-panel-light text-gray-300"
-                  }`}
-                >
-                  {method}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setCheckoutOpen(false)}
-                className="flex-1 py-2.5 rounded-md border border-gray-600 text-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={checkout}
-                className="flex-1 py-2.5 rounded-md bg-sarini-yellow text-black font-semibold hover:bg-sarini-yellow-dark"
-              >
-                Confirm Payment
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {printMode && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">

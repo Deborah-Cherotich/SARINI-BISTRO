@@ -26,14 +26,11 @@ export function Receipt({ order }: { order: Order }) {
         <span>TOTAL</span>
         <span>{formatMoney(order.total)}</span>
       </div>
-      {order.payment_method && (
-        <div className="flex justify-between text-xs mt-1">
-          <span>Payment</span>
-          <span className="uppercase">{order.payment_method}</span>
-        </div>
-      )}
       <div className="border-t border-dashed border-black my-2" />
-      <div className="text-center text-xs mt-2">Thank you for dining with us!</div>
+      <div className="text-center text-xs mt-2">
+        <div className="font-semibold">Thank you for dining with us!</div>
+        <div className="mt-1">We hope to see you again soon.</div>
+      </div>
     </div>
   );
 }

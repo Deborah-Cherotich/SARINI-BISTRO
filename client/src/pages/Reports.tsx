@@ -184,7 +184,6 @@ export function Reports() {
                 <th className="py-2 pr-4">Table</th>
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4">Created</th>
-                <th className="py-2 pr-4">Payment</th>
                 <th className="py-2 text-right">Total</th>
               </tr>
             </thead>
@@ -209,13 +208,12 @@ export function Reports() {
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-gray-400">{o.created_at}</td>
-                  <td className="py-2 pr-4 text-gray-400 uppercase">{o.payment_method || "—"}</td>
                   <td className="py-2 text-right text-sarini-yellow">{formatMoney(o.total)}</td>
                 </tr>
               ))}
               {history.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                  <td colSpan={5} className="py-4 text-center text-gray-500">
                     No orders yet.
                   </td>
                 </tr>
