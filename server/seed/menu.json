@@ -1,0 +1,290 @@
+[
+  {
+    "category": "Tea",
+    "items": [
+      { "name": "Black Tea", "price": 80 },
+      { "name": "Kenya Tea", "price": 100 },
+      { "name": "Herbal Tea (Hibiscus, Sage, Lemongrass, Fenugreek)", "price": 120 },
+      { "name": "Masala Tea", "price": 120 },
+      { "name": "Ginger Tea", "price": 120 },
+      { "name": "Dawa", "price": 200 },
+      { "name": "Lemon Tea", "price": 150 }
+    ]
+  },
+  {
+    "category": "Coffee and Espresso",
+    "items": [
+      { "name": "Espresso", "price": 150 },
+      { "name": "Cappuccino", "price": 250 },
+      { "name": "Caramel Macchiato", "price": 280 },
+      { "name": "Vanilla Latte", "price": 280 },
+      { "name": "Hazelnut Latte", "price": 300 },
+      { "name": "Cafe Mocha", "price": 250 },
+      { "name": "Americano", "price": 200 },
+      { "name": "Cafe Latte", "price": 250 },
+      { "name": "Hot Chocolate", "price": 180 },
+      { "name": "Peppermint Mocha", "price": 280 },
+      { "name": "Iced Latte", "price": 280 }
+    ]
+  },
+  {
+    "category": "Iced Teas and Iced Coffee",
+    "items": [
+      { "name": "Iced Tea with Fresh Juice", "price": 200 },
+      { "name": "Iced Dawa", "price": 200 },
+      { "name": "Iced Hibiscus Tea", "price": 200 },
+      { "name": "Iced Latte", "price": 350 },
+      { "name": "Iced Coffee", "price": 300 },
+      { "name": "Iced Mocha", "price": 350 },
+      { "name": "Affogato", "price": 250 }
+    ]
+  },
+  {
+    "category": "Fresh Juices",
+    "items": [
+      { "name": "Mango Juice", "price": 150 },
+      { "name": "Pineapple Juice", "price": 150 },
+      { "name": "Passion Juice", "price": 150 },
+      { "name": "Cocktail Juice", "price": 200 },
+      { "name": "Plastic Soda (500ml)", "price": 130 },
+      { "name": "Diet Coke", "price": 150 }
+    ]
+  },
+  {
+    "category": "Water",
+    "items": [
+      { "name": "Dasani (1 Litre)", "price": 120 },
+      { "name": "Dasani (500ml)", "price": 100 },
+      { "name": "Keringet (500ml)", "price": 100 },
+      { "name": "Keringet (1 Litre)", "price": 150 },
+      { "name": "Lemon Water (1 Litre)", "price": 60 }
+    ]
+  },
+  {
+    "category": "Extras",
+    "items": [
+      { "name": "Honey", "price": 70 },
+      { "name": "Tea Bag", "price": 50 },
+      { "name": "Hazelnut Syrup", "price": 70 },
+      { "name": "Caramel Syrup", "price": 70 },
+      { "name": "Vanilla Syrup", "price": 70 }
+    ]
+  },
+  {
+    "category": "Mocktails",
+    "items": [
+      { "name": "Virgin Mojito", "price": 350, "description": "Lime, mint leaves and syrup topped up with sprite" },
+      { "name": "Sarini Sunrise", "price": 360, "description": "Cordial, lemon juice, fanta and beetroot juice" },
+      { "name": "Blue Hawaiian", "price": 370, "description": "Blue curacao syrup, lemon juice, sprite and rosemary" },
+      { "name": "Shirley Temple", "price": 400, "description": "Syrup, orange juice, topped up with soda water" },
+      { "name": "Mint Mojito", "price": 380, "description": "Lime, mint leaves, syrup, topped up with soda water" },
+      { "name": "Strawberry Mojito", "price": 370, "description": "Fresh strawberries, lime, mint leaves, syrup topped with sprite" },
+      { "name": "Ginger Fizz", "price": 340, "description": "Fresh ginger, mint, honey syrup, topped up with stoney" },
+      { "name": "Blueberry Smash", "price": 400, "description": "Lime, blueberry grape syrup, topped up with soda water" },
+      { "name": "Kiwi Mojito", "price": 400, "description": "Kiwi fruit, syrup, lime, topped up with soda water" },
+      { "name": "Orange Mojito", "price": 390, "description": "Orange fruit, mint leaves and syrup" }
+    ]
+  },
+  {
+    "category": "Breakfast and Snacks",
+    "items": [
+      { "name": "Samosa Pair (Kachumbari)", "price": 160 },
+      { "name": "Meat Pie", "price": 180 },
+      { "name": "Veggie Pie", "price": 180 },
+      { "name": "Sausage Pair (Torch Chips)", "price": 140 },
+      { "name": "Kebabs", "price": 150 },
+      { "name": "Chapati", "price": 60 },
+      { "name": "Ndazi", "price": 50 },
+      { "name": "Hot Dogs", "price": 200 },
+      { "name": "King's Hawaiian Hotdog", "price": 250 },
+      { "name": "French Toast", "price": 150 },
+      { "name": "Two Fluffy Pancakes with Syrup", "price": 200 },
+      { "name": "Bacon", "price": 300 },
+      { "name": "Breakfast Burritos (Egg, Bacon, Avocado, Cheese)", "price": 350 },
+      { "name": "Sarini Breakfast Combo (Full Breakfast)", "price": 700, "description": "Homefries, 2 eggs of choice, toast or toasted bread, bacon or two sausages, french toast or pancake, served with tea and a small glass of fresh juice" }
+    ]
+  },
+  {
+    "category": "Cakes",
+    "items": [
+      { "name": "Cake with Scoop of Ice Cream", "price": 400 },
+      { "name": "Mini Cupcake", "price": 50 },
+      { "name": "Plain Muffin", "price": 60 },
+      { "name": "Chocolate Chip Muffin", "price": 80 },
+      { "name": "Vanilla Poppy Seed Cake", "price": 350 }
+    ]
+  },
+  {
+    "category": "Eggs",
+    "items": [
+      { "name": "Scrambled Eggs", "price": 120 },
+      { "name": "Fried Eggs", "price": 100 },
+      { "name": "Spanish Rolex", "price": 200 },
+      { "name": "Mixed Omelette", "price": 160 },
+      { "name": "Spanish Omelette", "price": 140 },
+      { "name": "Plain Omelette", "price": 120 }
+    ]
+  },
+  {
+    "category": "Soups",
+    "items": [
+      { "name": "Soup (Plain)", "price": 100, "description": "Served with rolls" },
+      { "name": "Mushroom Soup", "price": 250, "description": "Served with rolls" },
+      { "name": "Tomato Soup", "price": 150, "description": "Served with rolls" },
+      { "name": "Carrot Soup", "price": 180, "description": "Served with rolls" }
+    ]
+  },
+  {
+    "category": "Sandwiches",
+    "items": [
+      { "name": "BLT Sandwich (Bacon, Lettuce, Tomatoes)", "price": 380, "description": "Served with a few strips of chips" },
+      { "name": "Chicken Sandwich", "price": 350, "description": "Served with a few strips of chips" },
+      { "name": "Vegetarian Sandwich", "price": 300, "description": "Served with a few strips of chips" },
+      { "name": "Club Sandwich (Chicken Strips, Bacon, Lettuce, Cucumber, Tomatoes)", "price": 400, "description": "Served with a few strips of chips" }
+    ]
+  },
+  {
+    "category": "Breakfast Sides",
+    "items": [
+      { "name": "Fried Eggs (Side)", "price": 100 },
+      { "name": "Home Fries", "price": 180 },
+      { "name": "Bacon (Side)", "price": 300 },
+      { "name": "2 Sausages", "price": 140 },
+      { "name": "2 Pancakes with Syrup", "price": 200 },
+      { "name": "French Toast (Side)", "price": 150 },
+      { "name": "A Scoop of Ice Cream", "price": 100 },
+      { "name": "2 Slices of Toast", "price": 50 },
+      { "name": "2 Slices of Toasted Bread", "price": 70 }
+    ]
+  },
+  {
+    "category": "Milkshakes",
+    "items": [
+      { "name": "Classic Shake (Vanilla)", "price": 400 },
+      { "name": "Classic Shake (Strawberry)", "price": 400 },
+      { "name": "Classic Shake (Chocolate)", "price": 400 },
+      { "name": "Classic Shake (Mango)", "price": 400 },
+      { "name": "Classic Shake (Pistachio)", "price": 400 },
+      { "name": "Oreo Shake", "price": 480 },
+      { "name": "Neopolitan Shake", "price": 470 },
+      { "name": "Pina Colada Shake", "price": 460 },
+      { "name": "Mocha Shake", "price": 480 },
+      { "name": "Espresso Shake", "price": 500 },
+      { "name": "Mint Shake", "price": 450 },
+      { "name": "Blueberry Shake", "price": 450 },
+      { "name": "Hazelnut Shake", "price": 450 }
+    ]
+  },
+  {
+    "category": "Lunch",
+    "items": [
+      { "name": "Chips", "price": 250 },
+      { "name": "Masala Chips", "price": 350 },
+      { "name": "Spicy Chips", "price": 280 },
+      { "name": "Garlic Spicy Chips", "price": 280 },
+      { "name": "Bhajia", "price": 400 },
+      { "name": "Loaded Chips (Bacon & Cheese)", "price": 500 },
+      { "name": "Loaded Chips (Mushroom & Cheese)", "price": 550 }
+    ]
+  },
+  {
+    "category": "Vegetables",
+    "items": [
+      { "name": "Mixed Vegetables (Rice, Chapati)", "price": 400 },
+      { "name": "Mixed Vegetables Curry (Rice/Chapati)", "price": 450 }
+    ]
+  },
+  {
+    "category": "Traditional",
+    "items": [
+      { "name": "Suja / Kunde / Miroo / Saga (Ugali/Chapati)", "price": 280 },
+      { "name": "Suchaa / Kunde (Wimbi)", "price": 300 },
+      { "name": "Kunde Plate", "price": 200 },
+      { "name": "Sucha Plate", "price": 200 }
+    ]
+  },
+  {
+    "category": "Chicken Wings",
+    "items": [
+      { "name": "Chicken Wings - Barbeque (6 pcs)", "price": 300 },
+      { "name": "Chicken Wings - Barbeque (12 pcs)", "price": 600 },
+      { "name": "Sweet Chilli Wings (6 pcs)", "price": 350 },
+      { "name": "Sweet Chilli Wings (12 pcs)", "price": 700 },
+      { "name": "Sweet Chilli Wings (18 pcs)", "price": 1050 },
+      { "name": "Sweet Chilli Wings (24 pcs)", "price": 1400 }
+    ]
+  },
+  {
+    "category": "Chicken",
+    "items": [
+      { "name": "Chicken Grilled", "price": 560 },
+      { "name": "Chicken Curry (Boneless)", "price": 650 },
+      { "name": "Grilled Barbeque Chicken", "price": 560 },
+      { "name": "Grilled Chicken with Chips Masala", "price": 580 },
+      { "name": "Chicken Wet/Stew Traditional", "price": 580 },
+      { "name": "Chicken Skewers", "price": 400 },
+      { "name": "Chicken Dry Traditional", "price": 500 }
+    ]
+  },
+  {
+    "category": "Beef",
+    "items": [
+      { "name": "Beef (Stew, Wet Fry)", "price": 400 },
+      { "name": "Mutton", "price": 500 },
+      { "name": "Liver", "price": 500 }
+    ]
+  },
+  {
+    "category": "Tacos and Burritos",
+    "items": [
+      { "name": "Chicken Tacos", "price": 350 },
+      { "name": "Chicken Burritos", "price": 450 },
+      { "name": "Beef Burritos", "price": 400 }
+    ]
+  },
+  {
+    "category": "Mixed Grill",
+    "items": [
+      { "name": "Mixed Grill (Choma ribs, Chicken Skewers, Chicken Wings, Sausages, 2 accompaniments)", "price": 2200 }
+    ]
+  },
+  {
+    "category": "Burgers",
+    "items": [
+      { "name": "Big Sarini Burger (Egg, Bacon, Onions, Mushrooms)", "price": 750 },
+      { "name": "Beef Burger", "price": 550 },
+      { "name": "Chicken Burger", "price": 650 },
+      { "name": "Vegetarian Burger", "price": 580 }
+    ]
+  },
+  {
+    "category": "Platters",
+    "items": [
+      { "name": "Choma Platter (1/2 kg, one accompaniment)", "price": 800 },
+      { "name": "Choma Platter (1 kg, one accompaniment)", "price": 1600 },
+      { "name": "Full Chicken Wet Fry Platter", "price": 1800 },
+      { "name": "Full Chicken Grilled Platter", "price": 1600 }
+    ]
+  },
+  {
+    "category": "Fish",
+    "items": [
+      { "name": "Fish Dry Fry", "price": 550 },
+      { "name": "Fish Wet", "price": 600 },
+      { "name": "Fish in Coconut Cream", "price": 850 },
+      { "name": "Fish Fillet (Chips, Rice)", "price": 500 },
+      { "name": "Fish Fingers", "price": 450 }
+    ]
+  },
+  {
+    "category": "Grill Sides",
+    "items": [
+      { "name": "Cheese", "price": 150 },
+      { "name": "Wimbi", "price": 100 },
+      { "name": "Pilau", "price": 220 },
+      { "name": "Ugali", "price": 80 },
+      { "name": "Roast Potatoes", "price": 220 },
+      { "name": "Rice", "price": 180 }
+    ]
+  }
+]

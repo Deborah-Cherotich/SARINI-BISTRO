@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+@theme {
+  /* Warm charcoal base (not cool gray) so the dark theme reads as a
+     considered bistro palette rather than a default dark-mode UI. */
+  --color-sarini-bg: #181614;
+  --color-sarini-panel: #211f1c;
+  --color-sarini-panel-light: #2b2824;
+  --color-sarini-cream: #f3ede2;
+
+  /* Brand gold, straight from the Sarini Bistro logo. */
+  --color-sarini-yellow: #f2d40d;
+  --color-sarini-yellow-dark: #cbb100;
+
+  /* Status colors tuned to the bistro palette instead of stock
+     emerald/amber: sage for "free/good", terracotta for "occupied/busy". */
+  --color-sarini-sage: #8fce9f;
+  --color-sarini-sage-bg: #24352a;
+  --color-sarini-sage-border: #3d5a45;
+  --color-sarini-terracotta: #eda07c;
+  --color-sarini-terracotta-bg: #3a2721;
+  --color-sarini-terracotta-border: #6b4536;
+  --color-sarini-rose: #f0a3a3;
+  --color-sarini-rose-bg: #3a2222;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: var(--color-sarini-bg);
+  color: var(--color-sarini-cream);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #45454a;
+  border-radius: 6px;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable,
+  #printable * {
+    visibility: visible;
+  }
+  #printable {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+  }
+}
