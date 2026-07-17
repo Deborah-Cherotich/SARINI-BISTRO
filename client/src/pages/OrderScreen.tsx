@@ -176,9 +176,13 @@ export function OrderScreen() {
                 key={item.id}
                 onClick={() => addItem(item.id)}
                 disabled={order.status !== "open"}
-                className="text-left bg-sarini-panel hover:bg-sarini-panel-light rounded-lg overflow-hidden border border-black/30 disabled:opacity-50"
+                className="text-left self-start bg-sarini-panel hover:bg-sarini-panel-light rounded-lg border border-black/30 disabled:opacity-50"
               >
-                <ItemThumb imagePath={item.image_path} name={item.name} className="w-full h-24" />
+                <ItemThumb
+                  imagePath={item.image_path}
+                  name={item.name}
+                  className="w-full h-24 rounded-t-lg"
+                />
                 <div className="p-3">
                   <div className="text-sm font-medium text-white">{item.name}</div>
                   <div className="text-sarini-yellow text-sm mt-1">{formatMoney(item.price)}</div>

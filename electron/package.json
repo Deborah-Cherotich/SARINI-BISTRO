@@ -18,10 +18,18 @@
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "../server/**/*",
-      "!../server/data/**",
-      "../client/dist/**"
+      "main.js"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": ["**/*", "!data/**"]
+      },
+      {
+        "from": "../client/dist",
+        "to": "client/dist"
+      }
     ],
     "win": {
       "target": "nsis"

@@ -59,12 +59,16 @@ browser and log in.
   handled at the hotel's counter, outside this app — this just closes the order,
   prints the customer receipt, and frees the table).
 - **Admin** (admin role only) — edit menu categories/items/prices, upload/replace a
-  photo per dish, manage tables, and create/deactivate staff accounts.
+  photo per dish, manage tables, and create/deactivate staff accounts. Each staff
+  account can also be edited in place (name, username, password, role) via the
+  **Edit** button next to it in the Users tab — the person can log in with the
+  updated username/password immediately after saving.
 - **Reports** (admin role only) — today's sales, a date-range summary, top-selling
   items, and searchable order history.
 
 Printing uses the browser's print dialog (`window.print()`), so it works with any
-printer you have installed, including 80mm thermal receipt printers.
+printer you have installed, including 80mm thermal receipt printers. See "Setting up
+a receipt printer" below for connecting one.
 
 ## Building the desktop installer
 
@@ -86,7 +90,62 @@ cd ../electron && npm install && npm run dist  # produces the installer
 ```
 
 The installer lands in `electron/dist/` (e.g. `Sarini Bistro POS Setup 1.0.0.exe`).
-Copy that file to the till computer and run it — that's the whole install.
+
+**If you're building inside a OneDrive-synced folder** (e.g. the project lives under
+`Documents` and that's backed up to OneDrive), the build can fail with a "file is
+being used by another process" error while electron-builder repacks
+`dist/win-unpacked` — OneDrive briefly locks the file while syncing it. If that
+happens, either pause OneDrive syncing first, or point the build at a folder outside
+OneDrive: `npx electron-builder -c.directories.output=C:\some\other\folder` (run from
+`electron/`), then copy the resulting installer back into `electron/dist/` yourself.
+
+**Remember to rebuild after every code change** — the installer is a snapshot; it
+does not update itself. Re-run both commands above and reinstall whenever you want
+the installed app to reflect the latest changes.
+
+## Installing on another computer
+
+The installer is fully self-contained — the other machine needs nothing pre-installed
+(no Node.js, no internet connection required to run it).
+
+1. Copy `Sarini Bistro POS Setup 1.0.0.exe` to the other computer (USB drive, shared
+   network folder, cloud transfer — any way of moving one file works).
+2. Double-click it to run. A few things to expect:
+   - **Requires 64-bit Windows** (the build targets `x64`).
+   - **SmartScreen warning**: since it's unsigned (no code-signing certificate),
+     Windows will likely flag it as from an "Unknown Publisher" — click **More info**
+     → **Run anyway**.
+   - **No admin rights needed** — it's a per-user install, not per-machine.
+   - The wizard lets you choose the install folder, and creates both a desktop and a
+     Start Menu shortcut automatically.
+3. On first launch it creates its own local database and seeds it (menu, tables, and
+   the two default logins) inside that machine's own
+   `%APPDATA%\sarini-bistro-desktop` folder.
+
+**Each installed machine has its own separate, independent database.** Installing on
+a second machine does not share or sync orders/tables with the first one — this is
+meant for one standalone till per install, not multiple tills sharing live data.
+
+## Setting up a receipt printer
+
+Printing goes through the normal Windows print dialog (`window.print()`), so any
+printer already installed on that computer works — no app-specific driver or setup.
+
+1. **Install the printer in Windows first**: connect it (USB or network), then
+   Settings → Bluetooth & devices → Printers & scanners → Add device. Most 80mm
+   thermal receipt printers ship with their own driver — install that if Windows
+   doesn't auto-detect it.
+2. In the app, tap **Print** on a kitchen ticket or receipt — the browser's print
+   dialog opens. Pick the receipt printer there (it doesn't have to be the Windows
+   default printer; you choose it per print).
+3. **For 80mm thermal printers**, in the print dialog: set **Paper size** to your
+   printer's roll width (many list an "80mm" or "Receipt" size once the driver is
+   installed), turn **Headers and footers** off, and set **Margins** to "None" or
+   the smallest option — otherwise you'll get extra blank space or a cut-off receipt.
+   These settings are usually remembered after the first print.
+4. You can have a regular printer for something else and the receipt printer both
+   installed at once — the app doesn't assume a fixed printer, staff just pick the
+   right one each time the print dialog opens.
 
 ## Resetting the database
 

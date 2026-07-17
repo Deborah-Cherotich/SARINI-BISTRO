@@ -40,7 +40,16 @@ router.post("/", (req, res) => {
 router.put("/:id", (req, res) => {
   const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "User not found" });
-  const { name = existing.name, role = existing.role, active = existing.active, password } = req.body || {};
+  const {
+    name = existing.name,
+    username = existing.username,
+    role = existing.role,
+    active = existing.active,
+    password,
+  } = req.body || {};
+  if (!username.trim()) {
+    return res.status(400).json({ error: "username is required" });
+  }
   if (!["admin", "cashier"].includes(role)) {
     return res.status(400).json({ error: "role must be admin or cashier" });
   }
@@ -48,9 +57,13 @@ router.put("/:id", (req, res) => {
     return res.status(400).json({ error: "password must be at least 6 characters" });
   }
   const password_hash = password ? bcrypt.hashSync(password, 10) : existing.password_hash;
-  db.prepare(
-    "UPDATE users SET name = ?, role = ?, active = ?, password_hash = ? WHERE id = ?"
-  ).run(name, role, active ? 1 : 0, password_hash, req.params.id);
+  try {
+    db.prepare(
+      "UPDATE users SET name = ?, username = ?, role = ?, active = ?, password_hash = ? WHERE id = ?"
+    ).run(name, username.trim(), role, active ? 1 : 0, password_hash, req.params.id);
+  } catch (err) {
+    return res.status(400).json({ error: "Username already exists" });
+  }
   res.json(serialize(db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id)));
 });
 
