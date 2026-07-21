@@ -24,6 +24,8 @@ export function Login() {
   const [role, setRole] = useState<Role>("cashier");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +34,7 @@ export function Login() {
     setError(null);
     setLoading(true);
     try {
-      const loggedInUser = await login(username, password);
+      const loggedInUser = await login(username, password, rememberMe);
       if (loggedInUser.role !== role) {
         const actual =
           ROLES.find((r) => r.value === loggedInUser.role)?.label ?? loggedInUser.role;
@@ -188,14 +190,53 @@ export function Login() {
           <label htmlFor="login-password" className="block text-base text-gray-300 mb-1.5">
             Password
           </label>
-          <input
-            id="login-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            className="w-full mb-7 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2.5 text-white text-base focus:outline-none focus:border-sarini-yellow"
-          />
+          <div className="relative mb-4">
+            <input
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+              className="w-full rounded-md bg-sarini-panel-light border border-gray-700 pl-3 pr-11 py-2.5 text-white text-base focus:outline-none focus:border-sarini-yellow"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-white"
+            >
+              {showPassword ? (
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path
+                    d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path
+                    d="M3 3l18 18M10.6 10.7a3 3 0 0 0 4.2 4.2M6.6 6.8C4.2 8.4 2.5 12 2.5 12S6 18.5 12 18.5c1.9 0 3.5-.5 4.9-1.3M17.4 15.1C19.6 13.5 21.5 12 21.5 12S19.4 7.9 15.3 6.1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          {/* Remember me */}
+          <label className="flex items-center gap-2 mb-7 text-sm text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded accent-sarini-yellow"
+            />
+            Remember me on this device
+          </label>
 
           {/* Submit button */}
           <button

@@ -36,10 +36,16 @@ router.post("/login", loginLimiter, (req, res) => {
       .status(401)
       .json({ error: "This account has been deactivated. Ask an admin to reactivate it." });
   }
+  // This is a single offline till, not a public web app — there's no benefit
+  // to forcing a re-login every shift. A long-lived token plus the client
+  // persisting it in localStorage means signing in once is enough until
+  // someone taps "Log out". Deactivating an account (Admin > Users) still
+  // revokes access immediately regardless of how much of this is left,
+  // since authMiddleware re-checks `active` on every request.
   const token = jwt.sign(
     { id: user.id, name: user.name, username: user.username, role: user.role },
     JWT_SECRET,
-    { expiresIn: "12h" }
+    { expiresIn: "90d" }
   );
   res.json({
     token,

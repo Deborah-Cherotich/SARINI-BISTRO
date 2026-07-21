@@ -48,6 +48,18 @@ export function Receipt({ order }: { order: Order }) {
         <span>{formatMoney(order.total)}</span>
       </div>
       <div className="border-t border-dashed border-black my-2" />
+      <div className="text-center text-xs">
+        <div className="font-semibold mb-1">Pay via M-Pesa</div>
+        <div className="flex justify-between">
+          <span>Paybill</span>
+          <span className="font-bold">542542</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Account No.</span>
+          <span className="font-bold">31310</span>
+        </div>
+      </div>
+      <div className="border-t border-dashed border-black my-2" />
       <div className="text-center text-xs mt-2">
         <div className="font-semibold">Thank you for dining with us!</div>
         <div className="mt-1">We hope to see you again soon.</div>

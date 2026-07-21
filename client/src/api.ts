@@ -1,8 +1,6 @@
-const BASE = "/api";
+import { getToken, clearAuth } from "./authStorage";
 
-function getToken(): string | null {
-  return localStorage.getItem("sarini_token");
-}
+const BASE = "/api";
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
@@ -20,8 +18,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (path === "/auth/login") {
       throw new Error(data.error || "Invalid credentials");
     }
-    localStorage.removeItem("sarini_token");
-    localStorage.removeItem("sarini_user");
+    clearAuth();
     window.location.href = "/login";
     throw new Error("Unauthorized");
   }
