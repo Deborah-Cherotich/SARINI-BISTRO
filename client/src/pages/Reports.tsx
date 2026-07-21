@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { Order } from "../types";
-import { formatMoney } from "../format";
+import { formatMoney, formatServerDate } from "../format";
 
 interface DailyReport {
   date: string;
@@ -76,106 +76,138 @@ export function Reports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function deleteOrder(id: number) {
+    if (
+      !window.confirm(
+        `Permanently delete order #${id}? This cannot be undone and will remove it from past totals.`
+      )
+    )
+      return;
+    try {
+      await api.delete(`/orders/${id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete order");
+    }
+  }
+
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-white mb-4">Reports</h1>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-xl font-semibold text-white">Reports</h1>
+        <p className="text-sm text-gray-400 mt-1">Sales overview, breakdowns, and order history.</p>
+      </div>
 
       {error && (
-        <div className="mb-4 text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
+        <div className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-          <div className="text-gray-400 text-sm">Today's Sales</div>
-          <div className="text-2xl font-semibold text-sarini-yellow mt-1">
-            {daily ? formatMoney(daily.total) : "—"}
+      <section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+            <div className="text-gray-400 text-sm">Today's Sales</div>
+            <div className="text-2xl font-semibold text-sarini-yellow mt-1">
+              {daily ? formatMoney(daily.total) : "—"}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{daily?.orderCount ?? 0} orders</div>
           </div>
-          <div className="text-xs text-gray-500 mt-1">{daily?.orderCount ?? 0} orders</div>
-        </div>
-        <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-          <div className="text-gray-400 text-sm">Range Total ({from} → {to})</div>
-          <div className="text-2xl font-semibold text-sarini-yellow mt-1">
-            {range ? formatMoney(range.grandTotal) : "—"}
+          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+            <div className="text-gray-400 text-sm">
+              Range Total ({from} → {to})
+            </div>
+            <div className="text-2xl font-semibold text-sarini-yellow mt-1">
+              {range ? formatMoney(range.grandTotal) : "—"}
+            </div>
           </div>
         </div>
-        <div className="bg-sarini-panel border border-black/30 rounded-xl p-5 flex flex-col gap-2 justify-center">
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-gray-400 w-8">From</label>
+      </section>
+
+      <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+        <h2 className="text-white font-semibold mb-3">Filters</h2>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-400">From</label>
             <input
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="flex-1 rounded bg-sarini-panel-light border border-gray-700 px-2 py-1 text-white text-sm"
+              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
             />
           </div>
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-gray-400 w-8">To</label>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-400">To</label>
             <input
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="flex-1 rounded bg-sarini-panel-light border border-gray-700 px-2 py-1 text-white text-sm"
+              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
             />
           </div>
-          <div className="flex gap-2 items-center">
-            <label className="text-xs text-gray-400 w-8">Order</label>
+          <div className="flex flex-col gap-1 flex-1 min-w-40">
+            <label className="text-xs text-gray-400">Search order #</label>
             <input
               type="text"
               value={historyQuery}
               onChange={(e) => setHistoryQuery(e.target.value)}
               placeholder="Search order #"
-              className="flex-1 rounded bg-sarini-panel-light border border-gray-700 px-2 py-1 text-white text-sm"
+              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
             />
           </div>
           <button
             onClick={load}
-            className="mt-1 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
+            className="py-1.5 px-4 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
           >
             Apply
           </button>
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-3">Sales by Day</h2>
-          <div className="space-y-2">
-            {range?.days.map((d) => (
-              <div key={d.day} className="flex justify-between text-sm">
-                <span className="text-gray-300">{d.day}</span>
-                <span className="text-gray-400">{d.orderCount} orders</span>
-                <span className="text-sarini-yellow">{formatMoney(d.total)}</span>
-              </div>
-            ))}
-            {range?.days.length === 0 && (
-              <div className="text-gray-500 text-sm">No sales in this range.</div>
-            )}
+      <section>
+        <h2 className="text-white font-semibold mb-3">Sales Breakdown</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+            <h3 className="text-white font-medium mb-3">Sales by Day</h3>
+            <div className="space-y-2">
+              {range?.days.map((d) => (
+                <div key={d.day} className="flex justify-between text-sm">
+                  <span className="text-gray-300">{d.day}</span>
+                  <span className="text-gray-400">{d.orderCount} orders</span>
+                  <span className="text-sarini-yellow">{formatMoney(d.total)}</span>
+                </div>
+              ))}
+              {range?.days.length === 0 && (
+                <div className="text-gray-500 text-sm">No sales in this range.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+            <h3 className="text-white font-medium mb-3">Top Selling Items</h3>
+            <div className="space-y-2">
+              {topItems.map((item, i) => (
+                <div key={item.name} className="flex justify-between text-sm">
+                  <span className="text-gray-300">
+                    {i + 1}. {item.name}
+                  </span>
+                  <span className="text-gray-400">{item.quantity} sold</span>
+                  <span className="text-sarini-yellow">{formatMoney(item.revenue)}</span>
+                </div>
+              ))}
+              {topItems.length === 0 && (
+                <div className="text-gray-500 text-sm">No sales data yet.</div>
+              )}
+            </div>
           </div>
         </div>
+      </section>
 
-        <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-          <h2 className="text-white font-semibold mb-3">Top Selling Items</h2>
-          <div className="space-y-2">
-            {topItems.map((item, i) => (
-              <div key={item.name} className="flex justify-between text-sm">
-                <span className="text-gray-300">
-                  {i + 1}. {item.name}
-                </span>
-                <span className="text-gray-400">{item.quantity} sold</span>
-                <span className="text-sarini-yellow">{formatMoney(item.revenue)}</span>
-              </div>
-            ))}
-            {topItems.length === 0 && (
-              <div className="text-gray-500 text-sm">No sales data yet.</div>
-            )}
-          </div>
+      <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+        <div className="flex items-baseline justify-between mb-3">
+          <h2 className="text-white font-semibold">Order History</h2>
+          <span className="text-xs text-gray-500">{history.length} orders</span>
         </div>
-      </div>
-
-      <div className="bg-sarini-panel border border-black/30 rounded-xl p-5 mt-6">
-        <h2 className="text-white font-semibold mb-3">Order History</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -184,7 +216,8 @@ export function Reports() {
                 <th className="py-2 pr-4">Table</th>
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4">Created</th>
-                <th className="py-2 text-right">Total</th>
+                <th className="py-2 pr-4 text-right">Total</th>
+                <th className="py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -207,13 +240,23 @@ export function Reports() {
                       {o.status}
                     </span>
                   </td>
-                  <td className="py-2 pr-4 text-gray-400">{o.created_at}</td>
-                  <td className="py-2 text-right text-sarini-yellow">{formatMoney(o.total)}</td>
+                  <td className="py-2 pr-4 text-gray-400">{formatServerDate(o.created_at)}</td>
+                  <td className="py-2 pr-4 text-right text-sarini-yellow">
+                    {formatMoney(o.total)}
+                  </td>
+                  <td className="py-2 text-right">
+                    <button
+                      onClick={() => deleteOrder(o.id)}
+                      className="text-xs px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600"
+                    >
+                      Delete
+                    </button>
+                  </td>
                 </tr>
               ))}
               {history.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="py-4 text-center text-gray-500">
+                  <td colSpan={6} className="py-4 text-center text-gray-500">
                     No orders yet.
                   </td>
                 </tr>
@@ -221,7 +264,7 @@ export function Reports() {
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

@@ -119,6 +119,22 @@ export function OrderScreen() {
     }
   }
 
+  async function clearOrder() {
+    if (!order) return;
+    if (
+      !window.confirm(
+        "Permanently clear this order? Unlike Void, this removes it from the database completely and cannot be undone."
+      )
+    )
+      return;
+    try {
+      await api.delete(`/orders/${order.id}`);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to clear order");
+    }
+  }
+
   function closePrint() {
     setPrintMode(null);
     if (order?.status === "paid") navigate("/");
@@ -277,13 +293,23 @@ export function OrderScreen() {
                 </button>
               </div>
             )}
-            {order.status === "open" && user?.role === "admin" && (
-              <button
-                onClick={voidOrder}
-                className="w-full py-2 rounded-md text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30"
-              >
-                Void Order
-              </button>
+            {order.status === "open" && (
+              <div className="flex gap-2">
+                <button
+                  onClick={voidOrder}
+                  className="flex-1 py-2 rounded-md text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30"
+                >
+                  Void Order
+                </button>
+                {user?.role === "admin" && (
+                  <button
+                    onClick={clearOrder}
+                    className="flex-1 py-2 rounded-md text-sm bg-red-700 text-white hover:bg-red-600"
+                  >
+                    Clear Order
+                  </button>
+                )}
+              </div>
             )}
             {order.status === "paid" && (
               <button

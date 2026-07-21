@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   username TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('admin','cashier')),
+  role TEXT NOT NULL,
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -113,6 +113,55 @@ function makeStatement(sql) {
   };
 }
 
+// Older installs already have a `users` table on disk with the strict
+// CHECK (role IN ('admin','cashier')) constraint baked in — CREATE TABLE IF
+// NOT EXISTS above won't touch it, so rebuild the table in place the first
+// time we see the old constraint, to allow the now open-ended role values.
+function usersTableHasOldRoleCheck(sqlDb) {
+  const res = sqlDb.exec("SELECT sql FROM sqlite_master WHERE type='table' AND name='users'");
+  const createSql = res[0]?.values[0]?.[0];
+  return typeof createSql === "string" && createSql.includes("CHECK (role IN");
+}
+
+function migrateUsersRoleColumn(sqlDb) {
+  // orders.created_by/received_by reference users(id), so dropping the old
+  // `users` table with foreign keys enabled fails with a FOREIGN KEY
+  // constraint error the moment any order history exists. Disabling the
+  // pragma around the rebuild is SQLite's documented procedure for this
+  // exact kind of schema change (see "Making Other Kinds Of Table Schema
+  // Changes" in the SQLite ALTER TABLE docs) — it must happen outside the
+  // transaction since foreign_keys can't be toggled mid-transaction.
+  sqlDb.run("PRAGMA foreign_keys = OFF");
+  try {
+    sqlDb.run("BEGIN");
+    try {
+      sqlDb.run(`
+        CREATE TABLE users_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          username TEXT NOT NULL UNIQUE,
+          password_hash TEXT NOT NULL,
+          role TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      sqlDb.run(`
+        INSERT INTO users_new (id, name, username, password_hash, role, active, created_at)
+        SELECT id, name, username, password_hash, role, active, created_at FROM users;
+      `);
+      sqlDb.run("DROP TABLE users");
+      sqlDb.run("ALTER TABLE users_new RENAME TO users");
+      sqlDb.run("COMMIT");
+    } catch (err) {
+      sqlDb.run("ROLLBACK");
+      throw err;
+    }
+  } finally {
+    sqlDb.run("PRAGMA foreign_keys = ON");
+  }
+}
+
 let initPromise = null;
 
 function initDb() {
@@ -122,6 +171,10 @@ function initDb() {
     sqlDb = new SQL.Database(fileBuffer);
     sqlDb.run("PRAGMA foreign_keys = ON");
     sqlDb.run(SCHEMA_SQL);
+    if (usersTableHasOldRoleCheck(sqlDb)) {
+      migrateUsersRoleColumn(sqlDb);
+    }
+    persist();
 
     db.exec = (sql) => {
       sqlDb.run(sql);

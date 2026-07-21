@@ -10,6 +10,55 @@ interface EditDraft {
   role: Role;
 }
 
+const ROLE_PRESETS = ["admin", "manager", "cashier", "waiter", "chef", "receptionist"];
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  manager: "Manager",
+  cashier: "Cashier",
+  waiter: "Waiter",
+  chef: "Chef / Kitchen",
+  receptionist: "Receptionist",
+};
+
+function roleSelectValue(role: string) {
+  return ROLE_PRESETS.includes(role) ? role : "other";
+}
+
+function RoleSelect({
+  role,
+  onChange,
+  className,
+}: {
+  role: string;
+  onChange: (role: string) => void;
+  className: string;
+}) {
+  return (
+    <>
+      <select
+        value={roleSelectValue(role)}
+        onChange={(e) => onChange(e.target.value === "other" ? "" : e.target.value)}
+        className={className}
+      >
+        {ROLE_PRESETS.map((r) => (
+          <option key={r} value={r}>
+            {ROLE_LABELS[r]}
+          </option>
+        ))}
+        <option value="other">Other…</option>
+      </select>
+      {roleSelectValue(role) === "other" && (
+        <input
+          value={role}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Custom role"
+          className={className}
+        />
+      )}
+    </>
+  );
+}
+
 export function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
@@ -36,6 +85,7 @@ export function AdminUsers() {
 
   async function addUser() {
     if (!name.trim() || !username.trim() || !password) return;
+    setError(null);
     try {
       await api.post("/users", { name: name.trim(), username: username.trim(), password, role });
       setName("");
@@ -54,6 +104,16 @@ export function AdminUsers() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update user");
+    }
+  }
+
+  async function deleteUser(u: AppUser) {
+    if (!window.confirm(`Permanently delete ${u.name}? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/users/${u.id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete user");
     }
   }
 
@@ -99,31 +159,37 @@ export function AdminUsers() {
       <div className="flex flex-wrap gap-2 mb-6">
         <input
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value);
+            setError(null);
+          }}
           placeholder="Full name"
           className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white"
         />
         <input
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            setUsername(e.target.value);
+            setError(null);
+          }}
           placeholder="Username"
           className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white"
         />
         <input
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setError(null);
+          }}
           type="password"
           placeholder="Password"
           className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white"
         />
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value as Role)}
+        <RoleSelect
+          role={role}
+          onChange={(r) => setRole(r)}
           className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white"
-        >
-          <option value="cashier">Cashier</option>
-          <option value="admin">Admin</option>
-        </select>
+        />
         <button
           onClick={addUser}
           className="px-4 py-2 rounded-md bg-sarini-yellow text-black font-medium hover:bg-sarini-yellow-dark"
@@ -159,14 +225,11 @@ export function AdminUsers() {
                   placeholder="New password (leave blank to keep)"
                   className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white text-sm"
                 />
-                <select
-                  value={editDraft.role}
-                  onChange={(e) => setEditDraft({ ...editDraft, role: e.target.value as Role })}
+                <RoleSelect
+                  role={editDraft.role}
+                  onChange={(r) => setEditDraft({ ...editDraft, role: r })}
                   className="rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-2 text-white text-sm"
-                >
-                  <option value="cashier">Cashier</option>
-                  <option value="admin">Admin</option>
-                </select>
+                />
               </div>
               <div className="flex gap-2">
                 <button
@@ -211,6 +274,13 @@ export function AdminUsers() {
                   }`}
                 >
                   {u.active ? "Deactivate" : "Activate"}
+                </button>
+                <button
+                  onClick={() => deleteUser(u)}
+                  disabled={u.id === currentUser?.id}
+                  className="text-xs px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600 disabled:opacity-40"
+                >
+                  Delete
                 </button>
               </div>
             </div>

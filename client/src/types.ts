@@ -1,4 +1,4 @@
-export type Role = "admin" | "cashier";
+export type Role = string;
 
 export interface AuthUser {
   id: number;
@@ -56,6 +56,8 @@ export interface Order {
   total: number;
   payment_method: string | null;
   received_by: number | null;
+  served_by_name: string | null;
+  created_by_name: string | null;
   items: OrderItem[];
   table: RestaurantTable | null;
 }

@@ -14,7 +14,22 @@ function getOrderWithItems(orderId) {
   const table = order.table_id
     ? db.prepare("SELECT * FROM tables WHERE id = ?").get(order.table_id)
     : null;
-  return { ...order, items, table };
+  // "Served by" on the receipt is whoever completed the checkout, not
+  // necessarily whoever opened the table originally (a different staff
+  // member may have taken over service by the time the bill is settled).
+  const servedBy = order.received_by
+    ? db.prepare("SELECT name FROM users WHERE id = ?").get(order.received_by)
+    : null;
+  const createdBy = order.created_by
+    ? db.prepare("SELECT name FROM users WHERE id = ?").get(order.created_by)
+    : null;
+  return {
+    ...order,
+    items,
+    table,
+    served_by_name: servedBy ? servedBy.name : null,
+    created_by_name: createdBy ? createdBy.name : null,
+  };
 }
 
 function isValidQty(qty) {
@@ -195,9 +210,40 @@ router.post("/:id/checkout", (req, res) => {
   res.json(getOrderWithItems(order.id));
 });
 
-router.post("/:id/void", requireRole("admin"), (req, res) => {
+router.delete("/:id", requireRole("admin"), (req, res) => {
   const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
   if (!order) return res.status(404).json({ error: "Order not found" });
+
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM order_items WHERE order_id = ?").run(order.id);
+    db.prepare("DELETE FROM orders WHERE id = ?").run(order.id);
+    if (order.table_id) {
+      db.prepare("UPDATE tables SET status = 'free' WHERE id = ?").run(order.table_id);
+    }
+  });
+  tx();
+
+  res.status(204).end();
+});
+
+router.post("/:id/void", (req, res) => {
+  const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  if (order.status !== "open") return res.status(400).json({ error: "Order is not open" });
+
+  // Any staff member should be able to back out of a table they opened by
+  // mistake or a walk-in that changed their mind — that's routine, not an
+  // admin-level decision. Once something has actually been sent to the
+  // kitchen there's real food prep underway, so cancelling that needs an
+  // admin, same as changing a sent item's quantity does.
+  const sentCount = db
+    .prepare("SELECT COUNT(*) AS c FROM order_items WHERE order_id = ? AND kitchen_status = 'sent'")
+    .get(order.id).c;
+  if (sentCount > 0 && req.user.role !== "admin") {
+    return res.status(403).json({
+      error: "This order has items already sent to the kitchen. Ask an admin to void it.",
+    });
+  }
 
   const tx = db.transaction(() => {
     db.prepare(
