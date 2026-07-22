@@ -26,13 +26,23 @@ router.post("/", requireRole("admin"), (req, res) => {
   res.status(201).json(db.prepare("SELECT * FROM tables WHERE id = ?").get(lastInsertRowid));
 });
 
-router.put("/:id", requireRole("admin"), (req, res) => {
+// Renaming a table or fixing its seat count is routine housekeeping (same
+// reasoning as the delete route below) — any logged-in staff member can do
+// it, not just admins.
+router.put("/:id", (req, res) => {
   const existing = db.prepare("SELECT * FROM tables WHERE id = ?").get(req.params.id);
   if (!existing) return res.status(404).json({ error: "Table not found" });
   const { label = existing.label, seats = existing.seats } = req.body || {};
+  if (!label || !String(label).trim()) {
+    return res.status(400).json({ error: "label is required" });
+  }
+  const seatsNum = Number(seats);
+  if (!Number.isInteger(seatsNum) || seatsNum <= 0) {
+    return res.status(400).json({ error: "seats must be a positive integer" });
+  }
   db.prepare("UPDATE tables SET label = ?, seats = ? WHERE id = ?").run(
-    label,
-    seats,
+    String(label).trim(),
+    seatsNum,
     req.params.id
   );
   res.json(db.prepare("SELECT * FROM tables WHERE id = ?").get(req.params.id));

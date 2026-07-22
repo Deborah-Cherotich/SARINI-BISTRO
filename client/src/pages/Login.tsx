@@ -1,12 +1,18 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import type { Role } from "../types";
 
-const ROLES: { value: Role; label: string; blurb: string }[] = [
+// The login screen only ever needs to distinguish two categories: "admin"
+// (full access) and "staff" (everyone else). The account's real role
+// (cashier, waiter, chef, manager, receptionist, or any custom role an
+// admin created in Admin > Users) still drives everything after login —
+// this picker just has to get that broad category right, not the exact
+// role string.
+const CATEGORIES = [
   { value: "admin", label: "Admin", blurb: "Menu, tables, staff & reports" },
-  { value: "cashier", label: "Staff", blurb: "Take orders & serve tables" },
-];
+  { value: "staff", label: "Staff", blurb: "Any staff role — waiter, cashier, chef, etc." },
+] as const;
+type LoginCategory = (typeof CATEGORIES)[number]["value"];
 
 const HERO_IMAGES = [
   { src: "/uploads/vegetarian-burger.jpg", alt: "Vegetarian burger" },
@@ -21,7 +27,7 @@ function hideOnError(e: React.SyntheticEvent<HTMLImageElement>) {
 export function Login() {
   const { login, logout } = useAuth();
   const navigate = useNavigate();
-  const [role, setRole] = useState<Role>("cashier");
+  const [category, setCategory] = useState<LoginCategory>("staff");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -35,13 +41,19 @@ export function Login() {
     setLoading(true);
     try {
       const loggedInUser = await login(username, password, rememberMe);
-      if (loggedInUser.role !== role) {
-        const actual =
-          ROLES.find((r) => r.value === loggedInUser.role)?.label ?? loggedInUser.role;
+      const isAdmin = loggedInUser.role === "admin";
+      // Only "admin" is checked exactly — every other role (cashier,
+      // waiter, chef, manager, receptionist, or any custom one) counts as
+      // "Staff", so picking Staff always works for any non-admin account
+      // instead of only matching one specific role string.
+      if (category === "admin" && !isAdmin) {
         logout();
-        setError(
-          `That's a "${actual}" account. Select "${actual}" above and sign in again.`
-        );
+        setError('That\'s a Staff account. Select "Staff" above and sign in again.');
+        return;
+      }
+      if (category === "staff" && isAdmin) {
+        logout();
+        setError('That\'s an Admin account. Select "Admin" above and sign in again.');
         return;
       }
       navigate("/");
@@ -51,8 +63,6 @@ export function Login() {
       setLoading(false);
     }
   }
-
-  const selectedRoleLabel = ROLES.find((r) => r.value === role)?.label ?? "Staff";
 
   return (
     <div className="min-h-screen flex bg-sarini-bg">
@@ -134,29 +144,29 @@ export function Login() {
             Select your role to continue
           </p>
 
-          {/* Role selection */}
+          {/* Role category */}
           <fieldset className="mb-6">
             <legend className="sr-only">Select your role</legend>
             <div className="grid grid-cols-2 gap-3">
-              {ROLES.map((r) => (
+              {CATEGORIES.map((c) => (
                 <button
-                  key={r.value}
+                  key={c.value}
                   type="button"
-                  onClick={() => setRole(r.value)}
-                  aria-pressed={role === r.value}
+                  onClick={() => setCategory(c.value)}
+                  aria-pressed={category === c.value}
                   className={`text-left rounded-md px-4 py-3 border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sarini-yellow ${
-                    role === r.value
+                    category === c.value
                       ? "bg-sarini-yellow text-black border-sarini-yellow"
                       : "bg-sarini-panel-light text-gray-300 border-gray-700 hover:border-gray-500"
                   }`}
                 >
-                  <span className="text-base font-semibold">{r.label}</span>
+                  <span className="text-base font-semibold">{c.label}</span>
                   <span
                     className={`block text-xs mt-0.5 ${
-                      role === r.value ? "text-black/70" : "text-gray-500"
+                      category === c.value ? "text-black/70" : "text-gray-500"
                     }`}
                   >
-                    {r.blurb}
+                    {c.blurb}
                   </span>
                 </button>
               ))}
@@ -244,7 +254,9 @@ export function Login() {
             disabled={loading}
             className="w-full bg-sarini-yellow text-black font-semibold text-lg py-3 rounded-md hover:bg-sarini-yellow-dark transition-colors disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sarini-yellow"
           >
-            {loading ? "Signing in…" : `Sign in as ${selectedRoleLabel}`}
+            {loading
+              ? "Signing in…"
+              : `Sign in as ${CATEGORIES.find((c) => c.value === category)?.label}`}
           </button>
         </form>
       </div>

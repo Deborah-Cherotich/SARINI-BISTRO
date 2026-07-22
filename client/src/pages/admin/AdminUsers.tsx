@@ -63,6 +63,7 @@ export function AdminUsers() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -86,19 +87,32 @@ export function AdminUsers() {
   async function addUser() {
     if (!name.trim() || !username.trim() || !password) return;
     setError(null);
+    setNotice(null);
+    const addedName = name.trim();
     try {
-      await api.post("/users", { name: name.trim(), username: username.trim(), password, role });
+      await api.post("/users", { name: addedName, username: username.trim(), password, role });
       setName("");
       setUsername("");
       setPassword("");
       setRole("cashier");
       await load();
+      // New accounts are already active and ready to log in immediately —
+      // called out explicitly here since the only visible cue otherwise is
+      // a small red "Deactivate" button, which reads to a lot of people as
+      // "click this to activate" and does the opposite of what they meant.
+      setNotice(`✓ ${addedName} was added and can log in right away — no activation needed.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add user");
     }
   }
 
   async function toggleActive(u: AppUser) {
+    if (u.active) {
+      if (!window.confirm(`Deactivate ${u.name}? They won't be able to log in until reactivated.`)) {
+        return;
+      }
+    }
+    setNotice(null);
     try {
       await api.put(`/users/${u.id}`, { active: u.active ? 0 : 1 });
       await load();
@@ -154,6 +168,11 @@ export function AdminUsers() {
       {error && (
         <div className="mb-4 text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
           {error}
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 text-sm text-sarini-sage bg-sarini-sage-bg border border-sarini-sage-border rounded-md px-3 py-2">
+          {notice}
         </div>
       )}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -252,8 +271,17 @@ export function AdminUsers() {
               className="flex items-center justify-between bg-sarini-panel border border-black/30 rounded-lg px-4 py-3"
             >
               <div>
-                <div className="text-white font-medium">
+                <div className="text-white font-medium flex items-center gap-2">
                   {u.name} <span className="text-gray-500 text-sm">@{u.username}</span>
+                  <span
+                    className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${
+                      u.active
+                        ? "bg-sarini-sage-bg text-sarini-sage"
+                        : "bg-sarini-terracotta-bg text-sarini-terracotta"
+                    }`}
+                  >
+                    {u.active ? "Active — can log in" : "Inactive — can't log in"}
+                  </span>
                 </div>
                 <div className="text-xs text-gray-400 uppercase">{u.role}</div>
               </div>
