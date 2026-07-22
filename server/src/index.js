@@ -5,12 +5,6 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { initDb, dataDir } = require("./db");
 
-// This server only ever needs to be reachable from the till itself (Vite dev
-// server, the built client, or the Electron shell), all on localhost. Origin
-// is restricted rather than left wide open so a page loaded from anywhere
-// else on the internet can't make credentialed requests against it.
-const LOCAL_ORIGIN_PATTERN = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
-
 async function main() {
   await initDb();
   const { seedAll } = require("./seed-functions");
@@ -25,14 +19,17 @@ async function main() {
 
   const app = express();
   app.use(helmet({ contentSecurityPolicy: false }));
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (!origin || LOCAL_ORIGIN_PATTERN.test(origin)) return callback(null, true);
-        callback(new Error("Not allowed by CORS"));
-      },
-    })
-  );
+  // The real access boundary here is the JWT Bearer token (checked per
+  // request in authMiddleware), not the request's Origin — this API doesn't
+  // use cookies, so a page on some other site can't silently ride a logged-in
+  // user's session the way it could with cookie auth; it would need the
+  // token itself, which it has no way to read. An origin allowlist mostly
+  // just adds a maintenance burden (had to include every LAN range, every
+  // Tailscale/ngrok address the till might be reached through) without a
+  // matching security benefit, and got in the way of the app being reachable
+  // from wherever staff/admin actually are — restaurant WiFi, a VPN, or a
+  // public tunnel like ngrok for off-site access.
+  app.use(cors());
   app.use(express.json());
 
   app.get("/api/health", (req, res) => res.json({ ok: true }));
@@ -64,8 +61,10 @@ async function main() {
   });
 
   const PORT = process.env.PORT || 4000;
-  app.listen(PORT, "127.0.0.1", () => {
-    console.log(`Sarini Bistro API listening on http://localhost:${PORT}`);
+  // 0.0.0.0 (all network interfaces), not 127.0.0.1, so phones/tablets on
+  // the same WiFi can reach this PC's LAN IP — not just the PC itself.
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Sarini Bistro API listening on http://localhost:${PORT} (and on this PC's LAN IP, for phones on the same WiFi)`);
   });
 }
 

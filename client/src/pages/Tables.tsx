@@ -47,6 +47,17 @@ export function Tables() {
     }
   }
 
+  async function deleteTable(e: React.MouseEvent, table: RestaurantTable) {
+    e.stopPropagation();
+    if (!window.confirm(`Remove ${table.label}? This can't be undone.`)) return;
+    try {
+      await api.delete(`/tables/${table.id}`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove table");
+    }
+  }
+
   if (loading) return <div className="text-gray-400">Loading tables...</div>;
 
   return (
@@ -69,27 +80,44 @@ export function Tables() {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         {tables.map((table) => (
-          <button
-            key={table.id}
-            onClick={() => openTable(table)}
-            className={`rounded-xl p-5 text-left border transition-colors ${
-              table.status === "free"
-                ? "bg-sarini-panel border-sarini-sage-border hover:border-sarini-sage"
-                : "bg-sarini-terracotta-bg border-sarini-terracotta-border hover:border-sarini-terracotta"
-            }`}
-          >
-            <div className="text-lg font-semibold text-sarini-cream">{table.label}</div>
-            <div className="text-sm text-gray-400 mt-1">{table.seats} seats</div>
-            <div
-              className={`mt-3 inline-block text-xs font-medium px-2 py-1 rounded ${
+          <div key={table.id} className="relative">
+            <button
+              onClick={() => openTable(table)}
+              className={`w-full rounded-xl p-5 text-left border transition-colors ${
                 table.status === "free"
-                  ? "bg-sarini-sage-bg text-sarini-sage"
-                  : "bg-sarini-terracotta-bg text-sarini-terracotta"
+                  ? "bg-sarini-panel border-sarini-sage-border hover:border-sarini-sage"
+                  : "bg-sarini-terracotta-bg border-sarini-terracotta-border hover:border-sarini-terracotta"
               }`}
             >
-              {table.status === "free" ? "Free" : "Occupied"}
-            </div>
-          </button>
+              <div className="text-lg font-semibold text-sarini-cream pr-6">{table.label}</div>
+              <div className="text-sm text-gray-400 mt-1">{table.seats} seats</div>
+              <div
+                className={`mt-3 inline-block text-xs font-medium px-2 py-1 rounded ${
+                  table.status === "free"
+                    ? "bg-sarini-sage-bg text-sarini-sage"
+                    : "bg-sarini-terracotta-bg text-sarini-terracotta"
+                }`}
+              >
+                {table.status === "free" ? "Free" : "Occupied"}
+              </div>
+            </button>
+            {table.status === "free" && (
+              <button
+                onClick={(e) => deleteTable(e, table)}
+                aria-label={`Remove ${table.label}`}
+                title="Remove this table (e.g. added by mistake)"
+                className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-red-400 hover:bg-red-950/40"
+              >
+                <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path
+                    d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </div>

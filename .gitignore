@@ -5,3 +5,4 @@ server/data/*.db-shm
 server/data/*.db-wal
 server/data/jwt-secret.key
 .env
+remote-access/tunnel.log

@@ -38,7 +38,11 @@ router.put("/:id", requireRole("admin"), (req, res) => {
   res.json(db.prepare("SELECT * FROM tables WHERE id = ?").get(req.params.id));
 });
 
-router.delete("/:id", requireRole("admin"), (req, res) => {
+// Any logged-in staff member can remove a table (e.g. one added by mistake)
+// without needing an admin around — the guards below (must be free, must
+// have no order history) already make this safe: there's nothing a cashier
+// could delete here that would lose real data or disrupt a live table.
+router.delete("/:id", (req, res) => {
   const table = db.prepare("SELECT * FROM tables WHERE id = ?").get(req.params.id);
   if (!table) return res.status(404).json({ error: "Table not found" });
   if (table.status === "occupied") {

@@ -147,20 +147,20 @@ export function OrderScreen() {
   const activeItems = categories.find((c) => c.id === activeCategory)?.items || [];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-6rem)]">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
+    <div className="flex flex-col lg:h-[calc(100vh-6rem)]">
+      <div className="flex items-center justify-between mb-4 gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => navigate("/")}
-            className="text-sm px-3 py-1.5 rounded-md border border-gray-600 text-gray-300 hover:bg-sarini-panel-light"
+            className="shrink-0 text-sm px-3 py-1.5 rounded-md border border-gray-600 text-gray-300 hover:bg-sarini-panel-light"
           >
             ← Tables
           </button>
-          <h1 className="text-xl font-semibold text-white">
+          <h1 className="text-lg sm:text-xl font-semibold text-white truncate">
             {order.table ? order.table.label : `Takeaway #${order.id}`}
           </h1>
         </div>
-        <div className="text-sm text-gray-400">Order #{order.id} · {order.status}</div>
+        <div className="shrink-0 text-xs sm:text-sm text-gray-400">Order #{order.id} · {order.status}</div>
       </div>
 
       {error && (
@@ -169,14 +169,14 @@ export function OrderScreen() {
         </div>
       )}
 
-      <div className="flex gap-6 flex-1 min-h-0">
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 flex-1 lg:min-h-0">
+        <div className="flex-1 flex flex-col lg:min-h-0">
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible">
             {categories.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-md text-sm whitespace-nowrap ${
+                className={`px-3 py-1.5 rounded-md text-sm whitespace-nowrap shrink-0 ${
                   activeCategory === cat.id
                     ? "bg-sarini-yellow text-black font-medium"
                     : "bg-sarini-panel text-gray-300 hover:bg-sarini-panel-light"
@@ -186,7 +186,7 @@ export function OrderScreen() {
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 overflow-y-auto pr-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 lg:overflow-y-auto lg:pr-2">
             {activeItems.map((item) => (
               <button
                 key={item.id}
@@ -208,11 +208,11 @@ export function OrderScreen() {
           </div>
         </div>
 
-        <div className="w-96 flex flex-col bg-sarini-panel rounded-xl border border-black/30 min-h-0">
+        <div className="w-full lg:w-96 flex flex-col bg-sarini-panel rounded-xl border border-black/30 lg:min-h-0">
           <div className="p-4 border-b border-black/30 font-semibold text-white">
             Current Order
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="lg:flex-1 lg:overflow-y-auto p-4 space-y-3">
             {order.items.length === 0 && (
               <div className="text-gray-500 text-sm">No items yet. Tap a menu item to add.</div>
             )}
@@ -276,7 +276,7 @@ export function OrderScreen() {
               <span>{formatMoney(order.total)}</span>
             </div>
             {order.status === "open" && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={sendToKitchen}
                   disabled={order.items.length === 0}
@@ -294,7 +294,7 @@ export function OrderScreen() {
               </div>
             )}
             {order.status === "open" && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   onClick={voidOrder}
                   className="flex-1 py-2 rounded-md text-sm text-red-400 hover:text-red-300 hover:bg-red-950/30"
@@ -324,8 +324,8 @@ export function OrderScreen() {
       </div>
 
       {printMode && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-sarini-panel rounded-xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-3">
+          <div className="bg-sarini-panel rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto max-w-full">
             {printMode === "kitchen" ? <KitchenTicket order={order} /> : <Receipt order={order} />}
             <div className="flex gap-2 mt-4">
               <button
