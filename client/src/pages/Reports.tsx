@@ -3,13 +3,6 @@ import { api } from "../api";
 import type { Order } from "../types";
 import { formatMoney, formatServerDate } from "../format";
 
-interface DailyReport {
-  date: string;
-  orderCount: number;
-  total: number;
-  byMethod: Record<string, number>;
-}
-
 interface RangeReport {
   from: string;
   to: string;
@@ -35,33 +28,62 @@ function today() {
   return toLocalDateString(new Date());
 }
 
-function daysAgo(n: number) {
+function startOfWeek() {
   const d = new Date();
-  d.setDate(d.getDate() - n);
+  const day = d.getDay(); // 0 = Sunday
+  const sinceMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - sinceMonday);
   return toLocalDateString(d);
 }
 
+function startOfMonth() {
+  const d = new Date();
+  return toLocalDateString(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+type Period = "today" | "week" | "month" | "custom";
+
+const PERIODS: { value: Period; label: string }[] = [
+  { value: "today", label: "Today" },
+  { value: "week", label: "This Week" },
+  { value: "month", label: "This Month" },
+  { value: "custom", label: "Custom Range" },
+];
+
 export function Reports() {
-  const [daily, setDaily] = useState<DailyReport | null>(null);
+  const [period, setPeriod] = useState<Period>("today");
+  const [from, setFrom] = useState(today());
+  const [to, setTo] = useState(today());
   const [range, setRange] = useState<RangeReport | null>(null);
   const [topItems, setTopItems] = useState<TopItem[]>([]);
   const [history, setHistory] = useState<Order[]>([]);
-  const [from, setFrom] = useState(daysAgo(6));
-  const [to, setTo] = useState(today());
   const [historyQuery, setHistoryQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  function selectPeriod(p: Period) {
+    setPeriod(p);
+    if (p === "today") {
+      setFrom(today());
+      setTo(today());
+    } else if (p === "week") {
+      setFrom(startOfWeek());
+      setTo(today());
+    } else if (p === "month") {
+      setFrom(startOfMonth());
+      setTo(today());
+    }
+    // "custom" leaves from/to as whatever the date pickers currently hold.
+  }
 
   async function load() {
     try {
       const historyParams = new URLSearchParams({ from, to });
       if (historyQuery.trim()) historyParams.set("q", historyQuery.trim());
-      const [d, r, t, h] = await Promise.all([
-        api.get<DailyReport>(`/reports/daily?date=${today()}`),
+      const [r, t, h] = await Promise.all([
         api.get<RangeReport>(`/reports/range?from=${from}&to=${to}`),
         api.get<TopItem[]>(`/reports/top-items?from=${from}&to=${to}&limit=10`),
         api.get<Order[]>(`/orders/history?${historyParams.toString()}`),
       ]);
-      setDaily(d);
       setRange(r);
       setTopItems(t);
       setHistory(h);
@@ -74,7 +96,7 @@ export function Reports() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [from, to]);
 
   async function deleteOrder(id: number) {
     if (
@@ -91,11 +113,31 @@ export function Reports() {
     }
   }
 
+  async function resetSalesData() {
+    const typed = window.prompt(
+      'This permanently deletes every order and sale on record (menu, tables, and staff accounts are kept). Type RESET to confirm.'
+    );
+    if (typed !== "RESET") return;
+    try {
+      await api.post("/reports/reset-sales-data", { confirm: "RESET" });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset sales data");
+    }
+  }
+
+  const periodLabel = PERIODS.find((p) => p.value === period)?.label ?? "";
+
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <h1 className="text-xl font-semibold text-white">Reports</h1>
-        <p className="text-sm text-gray-400 mt-1">Sales overview, breakdowns, and order history.</p>
+        <button
+          onClick={resetSalesData}
+          className="text-xs px-3 py-1.5 rounded-md border border-red-800 text-red-400 hover:bg-red-950/40"
+        >
+          Reset Sales Data
+        </button>
       </div>
 
       {error && (
@@ -104,63 +146,56 @@ export function Reports() {
         </div>
       )}
 
-      <section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-            <div className="text-gray-400 text-sm">Today's Sales</div>
-            <div className="text-2xl font-semibold text-sarini-yellow mt-1">
-              {daily ? formatMoney(daily.total) : "—"}
-            </div>
-            <div className="text-xs text-gray-500 mt-1">{daily?.orderCount ?? 0} orders</div>
-          </div>
-          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-            <div className="text-gray-400 text-sm">
-              Range Total ({from} → {to})
-            </div>
-            <div className="text-2xl font-semibold text-sarini-yellow mt-1">
-              {range ? formatMoney(range.grandTotal) : "—"}
-            </div>
-          </div>
-        </div>
-      </section>
-
       <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-        <h2 className="text-white font-semibold mb-3">Filters</h2>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">From</label>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
-            />
+        <div className="flex flex-wrap gap-2 mb-4">
+          {PERIODS.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => selectPeriod(p.value)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                period === p.value
+                  ? "bg-sarini-yellow text-black"
+                  : "bg-sarini-panel-light text-gray-300 hover:text-white"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {period === "custom" && (
+          <div className="flex flex-wrap items-end gap-4 mb-4 pt-2 border-t border-black/30">
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">From</label>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-gray-400">To</label>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
+              />
+            </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-400">To</label>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
-            />
+        )}
+
+        <div>
+          <div className="text-gray-400 text-sm">
+            {periodLabel} {from !== to && `(${from} → ${to})`}
           </div>
-          <div className="flex flex-col gap-1 flex-1 min-w-40">
-            <label className="text-xs text-gray-400">Search order #</label>
-            <input
-              type="text"
-              value={historyQuery}
-              onChange={(e) => setHistoryQuery(e.target.value)}
-              placeholder="Search order #"
-              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
-            />
+          <div className="text-3xl font-semibold text-sarini-yellow mt-1">
+            {range ? formatMoney(range.grandTotal) : "—"}
           </div>
-          <button
-            onClick={load}
-            className="py-1.5 px-4 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
-          >
-            Apply
-          </button>
+          <div className="text-xs text-gray-500 mt-1">
+            {range?.days.reduce((sum, d) => sum + d.orderCount, 0) ?? 0} orders
+          </div>
         </div>
       </section>
 
@@ -178,7 +213,7 @@ export function Reports() {
                 </div>
               ))}
               {range?.days.length === 0 && (
-                <div className="text-gray-500 text-sm">No sales in this range.</div>
+                <div className="text-gray-500 text-sm">No sales in this period.</div>
               )}
             </div>
           </div>
@@ -204,9 +239,25 @@ export function Reports() {
       </section>
 
       <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-        <div className="flex items-baseline justify-between mb-3">
-          <h2 className="text-white font-semibold">Order History</h2>
-          <span className="text-xs text-gray-500">{history.length} orders</span>
+        <div className="flex items-baseline justify-between mb-3 gap-4 flex-wrap">
+          <h2 className="text-white font-semibold">Order History ({periodLabel})</h2>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={historyQuery}
+              onChange={(e) => setHistoryQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && load()}
+              placeholder="Search order #"
+              className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
+            />
+            <button
+              onClick={load}
+              className="py-1.5 px-3 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
+            >
+              Search
+            </button>
+            <span className="text-xs text-gray-500 whitespace-nowrap">{history.length} orders</span>
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -257,7 +308,7 @@ export function Reports() {
               {history.length === 0 && (
                 <tr>
                   <td colSpan={6} className="py-4 text-center text-gray-500">
-                    No orders yet.
+                    No orders in this period.
                   </td>
                 </tr>
               )}

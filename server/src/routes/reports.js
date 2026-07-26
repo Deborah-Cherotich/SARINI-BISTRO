@@ -70,4 +70,20 @@ router.get("/top-items", (req, res) => {
   res.json(rows);
 });
 
+// Wipes all order/sales history so a business can go live with a clean
+// slate after testing — deliberately leaves the menu, tables, and staff
+// accounts untouched, since those are real setup work, not test data.
+router.post("/reset-sales-data", (req, res) => {
+  if (req.body?.confirm !== "RESET") {
+    return res.status(400).json({ error: 'Send { "confirm": "RESET" } to proceed.' });
+  }
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM order_items").run();
+    db.prepare("DELETE FROM orders").run();
+    db.prepare("UPDATE tables SET status = 'free'").run();
+  });
+  tx();
+  res.json({ ok: true });
+});
+
 module.exports = router;

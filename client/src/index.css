@@ -50,6 +50,13 @@ body {
 }
 
 @media print {
+  /* No fixed margin box around the print area — on a thermal receipt
+     printer that "page" is already exactly the roll width, and a default
+     browser margin here eats into an already-narrow strip. */
+  @page {
+    margin: 0;
+    size: auto;
+  }
   body * {
     visibility: hidden;
   }
@@ -61,6 +68,16 @@ body {
     position: absolute;
     left: 0;
     top: 0;
-    width: 80mm;
+    /* Deliberately NOT width:100% here — that assumes Chrome knows the
+       printer's real (narrow) page width, but in practice it keeps laying
+       out against a wide default page (Letter/A4) regardless of the actual
+       thermal roll, so "100%" was still too wide and got physically sliced
+       by the print head. The component's own fixed, conservatively narrow
+       width (see Receipt.tsx/KitchenTicket.tsx) is what actually keeps this
+       safe — this rule just avoids fighting that width with its own.
+       Overflow-wrap remains as a second line of defense for any unusually
+       long single word/value. */
+    box-sizing: border-box;
+    overflow-wrap: break-word;
   }
 }

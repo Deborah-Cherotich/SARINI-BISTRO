@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { RestaurantTable } from "../types";
@@ -10,6 +10,7 @@ export function Tables() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editSeats, setEditSeats] = useState("");
+  const editingIdRef = useRef<number | null>(null);
   const navigate = useNavigate();
 
   async function load() {
@@ -24,8 +25,43 @@ export function Tables() {
     }
   }
 
+  // Quiet refresh used for polling/refocus — updates the grid without
+  // flashing the full-page "Loading tables..." state, and skips entirely
+  // while a card is mid-edit so a background refresh can't clobber what
+  // someone's currently typing. Reads editingIdRef rather than the
+  // editingId state directly since this function is captured once by
+  // setInterval below and would otherwise always see its initial value.
+  async function refresh() {
+    if (editingIdRef.current !== null) return;
+    try {
+      const data = await api.get<RestaurantTable[]>("/tables");
+      setTables(data);
+    } catch {
+      // A quiet background refresh failing isn't worth interrupting the
+      // user with an error banner — the next poll (or their next action)
+      // will just try again.
+    }
+  }
+
+  useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
+
   useEffect(() => {
     load();
+    // Other devices/tabs can change table status at any time (a phone
+    // opening a table, another till freeing one) — poll so this screen
+    // reflects that without staff needing to manually reload.
+    const interval = setInterval(refresh, 5000);
+    function onFocus() {
+      refresh();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function openTable(table: RestaurantTable) {
@@ -58,6 +94,27 @@ export function Tables() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove table");
+    }
+  }
+
+  // For when the customers have already left without a bill (walked out,
+  // order started by mistake, etc.) — voids the table's open order and
+  // frees it up right from the table card, no need to open the order screen
+  // first. Same void endpoint/permissions as the order screen's own "Void
+  // Order" button, so it's blocked the same way once something's been sent
+  // to the kitchen.
+  async function freeTable(e: React.MouseEvent, table: RestaurantTable) {
+    e.stopPropagation();
+    if (!table.open_order_id) return;
+    if (!window.confirm(`Free ${table.label}? This cancels its current order and marks the table free again.`)) {
+      return;
+    }
+    setError(null);
+    try {
+      await api.post(`/orders/${table.open_order_id}/void`);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to free table");
     }
   }
 
@@ -179,6 +236,18 @@ export function Tables() {
                     />
                   </svg>
                 </button>
+                {table.status === "occupied" && table.open_order_id && (
+                  <button
+                    onClick={(e) => freeTable(e, table)}
+                    aria-label={`Free ${table.label}`}
+                    title="Free this table (customers have left)"
+                    className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-sarini-sage hover:bg-sarini-sage-bg"
+                  >
+                    <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
                 {table.status === "free" && (
                   <button
                     onClick={(e) => deleteTable(e, table)}

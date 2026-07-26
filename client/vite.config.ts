@@ -10,6 +10,14 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Registration is done manually in main.tsx instead of the default
+      // auto-injected <script> — the desktop app (Electron) skips
+      // registering a service worker at all, since installability is
+      // meaningless there (it's already a real installed app) and a cached
+      // service worker was serving stale JS/CSS after reinstalling an
+      // update. Only the phone/browser path (LAN or the ngrok tunnel)
+      // registers one, to keep "Add to Home Screen" working.
+      injectRegister: false,
       // Only precaches the built app shell (JS/CSS/HTML/icons) for a fast,
       // installable load — deliberately does NOT add any runtime caching
       // rule for /api or /uploads, so table status, orders, and menu data
