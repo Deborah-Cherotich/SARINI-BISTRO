@@ -25,7 +25,7 @@ function hideOnError(e: React.SyntheticEvent<HTMLImageElement>) {
 }
 
 export function Login() {
-  const { login, logout } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [category, setCategory] = useState<LoginCategory>("staff");
   const [username, setUsername] = useState("");
@@ -40,22 +40,18 @@ export function Login() {
     setError(null);
     setLoading(true);
     try {
-      const loggedInUser = await login(username, password, rememberMe);
-      const isAdmin = loggedInUser.role === "admin";
-      // Only "admin" is checked exactly — every other role (cashier,
-      // waiter, chef, manager, receptionist, or any custom one) counts as
-      // "Staff", so picking Staff always works for any non-admin account
-      // instead of only matching one specific role string.
-      if (category === "admin" && !isAdmin) {
-        logout();
-        setError('That\'s a Staff account. Select "Staff" above and sign in again.');
-        return;
-      }
-      if (category === "staff" && isAdmin) {
-        logout();
-        setError('That\'s an Admin account. Select "Admin" above and sign in again.');
-        return;
-      }
+      // The category picker above is only a label for the sign-in button
+      // ("Sign in as Staff" / "Sign in as Admin") — it does not gate
+      // anything. It used to: picking the wrong one (e.g. an admin account
+      // left on the default "Staff" selection) logged the user straight
+      // back out via logout(), which also wipes "Remember me" storage —
+      // so an admin who didn't think to click "Admin" first would appear
+      // to have a broken Remember Me, when the actual account and token
+      // were fine the whole time. The server already knows the real role
+      // from the token, and every page already gates by that real role
+      // (see ProtectedRoute), so this extra client-side check only added
+      // friction without adding safety.
+      await login(username, password, rememberMe);
       navigate("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");

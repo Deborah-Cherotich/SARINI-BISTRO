@@ -1,8 +1,9 @@
 # Sarini Bistro POS
 
 A point-of-sale system for Sarini Bistro: table management, order taking from the full
-menu (with dish photos), kitchen/receipt printing, staff roles, and sales reports.
-Runs fully offline — no internet connection needed once installed.
+menu (with dish photos), kitchen/receipt printing, staff roles, sales reports, and
+stock/inventory tracking. Runs fully offline — no internet connection needed once
+installed.
 
 - **Server**: Node.js + Express + `sql.js` (SQLite compiled to WASM — pure JS, no
   native/compiled dependencies, which is what makes the desktop installer possible
@@ -51,6 +52,12 @@ browser and log in.
 
 ## Day-to-day use
 
+- **Login** — pick "Admin" or "Staff" (this is just a label for the sign-in button,
+  it doesn't restrict anything — the account's real role decides what you can see
+  after logging in), enter username/password, and optionally check **Remember me on
+  this device** to stay logged in after closing and reopening the app/browser
+  (unchecked, it logs out as soon as the window/tab closes — useful on a shared
+  till). Works the same for every role, admin included.
 - **Tables** (home screen) — tap a free table to open an order, or start a takeaway
   order. Occupied tables (terracotta) jump back into their existing order.
 - **Order screen** — tap menu items by category to add them to the cart (items with
@@ -59,16 +66,56 @@ browser and log in.
   handled at the hotel's counter, outside this app — this just closes the order,
   prints the customer receipt, and frees the table).
 - **Admin** (admin role only) — edit menu categories/items/prices, upload/replace a
-  photo per dish, manage tables, and create/deactivate staff accounts. Each staff
-  account can also be edited in place (name, username, password, role) via the
-  **Edit** button next to it in the Users tab — the person can log in with the
-  updated username/password immediately after saving.
+  photo per dish, manage tables, create/deactivate staff accounts, and track stock
+  (see "Stock / inventory tracking" below). Each staff account can also be edited in
+  place (name, username, password, role) via the **Edit** button next to it in the
+  Users tab — the person can log in with the updated username/password immediately
+  after saving.
 - **Reports** (admin role only) — today's sales, a date-range summary, top-selling
   items, and searchable order history.
 
 Printing uses the browser's print dialog (`window.print()`), so it works with any
 printer you have installed, including 80mm thermal receipt printers. See "Setting up
 a receipt printer" below for connecting one.
+
+## Stock / inventory tracking
+
+Lets the admin track raw stock (e.g. sausages, chicken, drinks) and have it reduce
+automatically whenever a dish that uses it gets sold — no manual counting needed.
+Found under **Admin → Stock**.
+
+Built on the same stack as the rest of the app — no extra services, databases, or
+dependencies added: the API endpoints live in `server/src/routes/stock.js` (Node.js
++ Express), the data lives in three new tables in the existing `sql.js` (SQLite)
+database (`stock_items`, `menu_item_ingredients`, `stock_movements` — see `db.js`),
+and the screen is a React + TypeScript page (`client/src/pages/admin/AdminStock.tsx`)
+styled with Tailwind CSS, same as every other admin screen. The automatic deduction
+is wired directly into the existing checkout endpoint in `orders.js`.
+
+**How it works, in plain terms:**
+- **Stock items** are your raw supplies — a running count with a unit (pcs, kg,
+  litres, whatever fits) and a "low stock" threshold that shows a warning badge once
+  you're at or below it.
+- **Recipes** are what link a menu dish to the stock it uses, and how much per sale
+  — e.g. "Mixed Grill uses 2 Sausages." Not every dish needs one; dishes with no
+  recipe (like a cup of tea) simply never touch stock. This is admin-defined and
+  opt-in per dish.
+- **Deduction is automatic and happens at checkout** — the moment an order is paid
+  and closed, the system looks at what was sold, checks each item's recipe, and
+  reduces the matching stock quantities on its own. Staff don't do anything extra.
+- **Restocking / corrections** are manual: pick "Restock" when new stock arrives, or
+  "Adjustment" to correct a miscount or log breakage/spoilage (can be negative), with
+  an optional note.
+- **History** — every single change (restocks, sale deductions with the order number,
+  and manual corrections) is logged with the date and which staff member did it, so
+  "History" on any stock item is the full stock report/audit trail.
+
+**Setting it up for the first time:**
+1. Admin → Stock → add each stock item you want to track, with its starting quantity.
+2. Under "Dish Recipes," pick a dish, then link the stock item(s) it uses and how
+   many per sale. Repeat for every dish you want tracked — this is a one-time setup
+   per dish, not something done per order.
+3. From then on, selling that dish and completing the order deducts stock by itself.
 
 ## Building the desktop installer
 
@@ -170,16 +217,19 @@ server/
     index.js            # Express app entry point (serves API + built client)
     db.js                # sql.js (SQLite/WASM) schema + better-sqlite3-like adapter
     seed-functions.js     # seed logic (users, tables, menu, seed photos)
-    routes/                # auth, menu, tables, orders, reports, users
+    routes/                # auth, menu, tables, orders, reports, users, stock
   seed/
     menu.json               # full Sarini Bistro menu, editable before first run
     images/                  # a few real dish photos seeded onto matching items
 client/
   src/
     pages/              # Login, Tables, OrderScreen, Admin, Reports
+      admin/                # AdminMenu, AdminTables, AdminUsers, AdminStock
     components/         # Layout, ProtectedRoute, Receipt, KitchenTicket, ItemThumb
     context/AuthContext.tsx
     api.ts                # typed fetch wrapper (JWT auth + file uploads)
+    authStorage.ts          # Remember Me: localStorage (persists) vs
+                              # sessionStorage (cleared on tab/window close)
 electron/
   main.js               # Electron main process — starts the server in-process,
                           # opens a window once it's ready

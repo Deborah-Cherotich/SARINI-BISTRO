@@ -1,6 +1,7 @@
 const express = require("express");
 const { db } = require("../db");
 const { authMiddleware, requireRole } = require("../middleware/auth");
+const { applyStockMovement } = require("./stock");
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -198,6 +199,23 @@ router.post("/:id/checkout", (req, res) => {
   const { payment_method = "cash" } = req.body || {};
 
   const tx = db.transaction(() => {
+    // Deduct any tracked stock consumed by what was actually sold. Menu items
+    // with no recipe mapping (menu_item_ingredients) are simply skipped —
+    // stock tracking is opt-in per item, not every dish needs it.
+    const items = db.prepare("SELECT * FROM order_items WHERE order_id = ?").all(order.id);
+    for (const item of items) {
+      if (!item.menu_item_id) continue;
+      const ingredients = db
+        .prepare("SELECT * FROM menu_item_ingredients WHERE menu_item_id = ?")
+        .all(item.menu_item_id);
+      for (const ing of ingredients) {
+        applyStockMovement(ing.stock_item_id, -(ing.qty_per_unit * item.qty), "sale", {
+          orderId: order.id,
+          userId: req.user.id,
+        });
+      }
+    }
+
     db.prepare(
       "UPDATE orders SET status = 'paid', closed_at = datetime('now'), payment_method = ?, received_by = ? WHERE id = ?"
     ).run(payment_method, req.user.id, order.id);

@@ -2,11 +2,13 @@ import { useState } from "react";
 import { AdminMenu } from "./admin/AdminMenu";
 import { AdminTables } from "./admin/AdminTables";
 import { AdminUsers } from "./admin/AdminUsers";
+import { AdminStock } from "./admin/AdminStock";
 
 const TABS = [
   { key: "menu", label: "Menu" },
   { key: "tables", label: "Tables" },
   { key: "users", label: "Users" },
+  { key: "stock", label: "Stock" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -35,6 +37,7 @@ export function Admin() {
       {tab === "menu" && <AdminMenu />}
       {tab === "tables" && <AdminTables />}
       {tab === "users" && <AdminUsers />}
+      {tab === "stock" && <AdminStock />}
     </div>
   );
 }

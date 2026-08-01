@@ -70,3 +70,34 @@ export interface AppUser {
   active: number;
   created_at: string;
 }
+
+export interface StockItem {
+  id: number;
+  name: string;
+  unit: string;
+  quantity: number;
+  low_stock_threshold: number;
+  active: number;
+  created_at: string;
+  low: boolean;
+}
+
+export interface StockMovement {
+  id: number;
+  stock_item_id: number;
+  change: number;
+  reason: "restock" | "sale" | "adjustment";
+  order_id: number | null;
+  note: string | null;
+  created_by: number | null;
+  created_by_name: string | null;
+  created_at: string;
+}
+
+export interface MenuItemIngredient {
+  id: number;
+  stock_item_id: number;
+  qty_per_unit: number;
+  stock_item_name: string;
+  stock_item_unit: string;
+}

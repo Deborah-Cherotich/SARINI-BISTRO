@@ -16,6 +16,7 @@ async function main() {
   const orderRoutes = require("./routes/orders");
   const reportRoutes = require("./routes/reports");
   const userRoutes = require("./routes/users");
+  const { router: stockRoutes } = require("./routes/stock");
 
   const app = express();
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -40,6 +41,7 @@ async function main() {
   app.use("/api/orders", orderRoutes);
   app.use("/api/reports", reportRoutes);
   app.use("/api/users", userRoutes);
+  app.use("/api/stock", stockRoutes);
 
   app.use("/uploads", express.static(path.join(dataDir, "uploads")));
 

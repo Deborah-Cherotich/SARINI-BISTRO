@@ -66,6 +66,35 @@ CREATE TABLE IF NOT EXISTS order_items (
   kitchen_status TEXT NOT NULL DEFAULT 'pending' CHECK (kitchen_status IN ('pending','sent')),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS stock_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  unit TEXT NOT NULL DEFAULT 'pcs',
+  quantity REAL NOT NULL DEFAULT 0,
+  low_stock_threshold REAL NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS menu_item_ingredients (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+  stock_item_id INTEGER NOT NULL REFERENCES stock_items(id),
+  qty_per_unit REAL NOT NULL,
+  UNIQUE(menu_item_id, stock_item_id)
+);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  stock_item_id INTEGER NOT NULL REFERENCES stock_items(id),
+  change REAL NOT NULL,
+  reason TEXT NOT NULL CHECK (reason IN ('restock','sale','adjustment')),
+  order_id INTEGER REFERENCES orders(id),
+  note TEXT,
+  created_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 `;
 
 // sql.js is SQLite compiled to WASM (pure JS, no native addon) so it can be
