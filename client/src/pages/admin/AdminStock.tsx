@@ -1,7 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { api } from "../../api";
 import type { Category, MenuItemIngredient, StockItem, StockMovement } from "../../types";
 import { formatServerDate } from "../../format";
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 text-xs text-gray-400">
+      {label}
+      {children}
+    </label>
+  );
+}
 
 export function AdminStock() {
   const [items, setItems] = useState<StockItem[]>([]);
@@ -13,12 +22,21 @@ export function AdminStock() {
   const [newQty, setNewQty] = useState("");
   const [newThreshold, setNewThreshold] = useState("");
 
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<{ name: string; unit: string; low_stock_threshold: string }>({
+    name: "",
+    unit: "",
+    low_stock_threshold: "",
+  });
+
   const [openMovementsFor, setOpenMovementsFor] = useState<number | null>(null);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [openRestockFor, setOpenRestockFor] = useState<number | null>(null);
   const [movementDrafts, setMovementDrafts] = useState<
     Record<number, { change: string; reason: "restock" | "adjustment"; note: string }>
   >({});
 
+  const [dishQuery, setDishQuery] = useState("");
   const [recipeMenuItemId, setRecipeMenuItemId] = useState<number | "">("");
   const [recipe, setRecipe] = useState<MenuItemIngredient[]>([]);
   const [recipeDraft, setRecipeDraft] = useState<{ stock_item_id: string; qty_per_unit: string }>({
@@ -62,17 +80,52 @@ export function AdminStock() {
     }
   }
 
-  async function deleteStockItem(id: number) {
-    if (!window.confirm("Delete this stock item? It must not be used in any dish's recipe.")) return;
+  function startEdit(item: StockItem) {
+    setEditingId(item.id);
+    setOpenRestockFor(null);
+    setEditDraft({ name: item.name, unit: item.unit, low_stock_threshold: String(item.low_stock_threshold) });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(id: number) {
+    if (!editDraft.name.trim()) return;
     try {
-      await api.delete(`/stock/${id}`);
+      await api.put(`/stock/${id}`, {
+        name: editDraft.name.trim(),
+        unit: editDraft.unit.trim() || "pcs",
+        low_stock_threshold: editDraft.low_stock_threshold ? Number(editDraft.low_stock_threshold) : 0,
+      });
+      setEditingId(null);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete stock item");
+      setError(err instanceof Error ? err.message : "Failed to update stock item");
+    }
+  }
+
+  async function deleteStockItem(id: number, force = false) {
+    if (!force && !window.confirm("Delete this stock item?")) return;
+    try {
+      await api.delete(`/stock/${id}${force ? "?force=true" : ""}`);
+      if (recipeMenuItemId) await loadRecipe(recipeMenuItemId as number);
+      await load();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete stock item";
+      if (!force && message.startsWith("Still used by:")) {
+        const dishes = message.replace("Still used by:", "").trim();
+        if (window.confirm(`This stock item is linked to: ${dishes}.\n\nUnlink it from those dishes and delete it anyway?`)) {
+          await deleteStockItem(id, true);
+        }
+        return;
+      }
+      setError(message);
     }
   }
 
   async function toggleMovements(id: number) {
+    setOpenRestockFor(null);
     if (openMovementsFor === id) {
       setOpenMovementsFor(null);
       return;
@@ -84,6 +137,11 @@ export function AdminStock() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load stock history");
     }
+  }
+
+  function toggleRestock(id: number) {
+    setOpenMovementsFor(null);
+    setOpenRestockFor((cur) => (cur === id ? null : id));
   }
 
   function draftFor(id: number) {
@@ -101,6 +159,7 @@ export function AdminStock() {
         note: draft.note.trim() || null,
       });
       setMovementDrafts((prev) => ({ ...prev, [id]: { change: "", reason: "restock", note: "" } }));
+      setOpenRestockFor(null);
       await load();
       if (openMovementsFor === id) await toggleMovementsRefresh(id);
     } catch (err) {
@@ -139,7 +198,7 @@ export function AdminStock() {
     setRecipeDraft({ stock_item_id: "", qty_per_unit: "" });
   }
 
-  async function removeIngredient(stockItemId: number) {
+  async function unlinkIngredient(stockItemId: number) {
     await saveRecipe(recipe.filter((r) => r.stock_item_id !== stockItemId));
   }
 
@@ -156,127 +215,233 @@ export function AdminStock() {
   }
 
   const allMenuItems = categories.flatMap((c) => c.items.map((i) => ({ ...i, categoryName: c.name })));
+  const dishLabel = (mi: { categoryName: string; name: string }) => `${mi.categoryName} — ${mi.name}`;
+  const selectedDish = allMenuItems.find((mi) => mi.id === recipeMenuItemId);
+
+  function handleDishQueryChange(value: string) {
+    setDishQuery(value);
+    const match = allMenuItems.find((mi) => dishLabel(mi) === value);
+    if (match) {
+      loadRecipe(match.id);
+    } else if (!value) {
+      setRecipeMenuItemId("");
+      setRecipe([]);
+    }
+  }
 
   return (
     <div className="space-y-8">
+      <div>
+        <h2 className="text-white text-lg font-semibold mb-1">Stock / Inventory</h2>
+        <p className="text-sm text-gray-400">
+          Track raw supplies here (sausages, chicken, drinks, etc). Link a supply to a dish further down and
+          it will deduct on its own every time that dish is sold — no extra work at the till.
+        </p>
+      </div>
+
       {error && (
-        <div className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
-          {error}
+        <div className="text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="text-red-300 hover:text-white shrink-0">
+            ✕
+          </button>
         </div>
       )}
 
-      <section className="bg-sarini-panel border border-black/30 rounded-xl p-4">
-        <h3 className="text-white font-semibold mb-3">Add Stock Item</h3>
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            placeholder="Name (e.g. Sausages)"
-            className="flex-1 min-w-[160px] rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
-          />
-          <input
-            value={newUnit}
-            onChange={(e) => setNewUnit(e.target.value)}
-            placeholder="Unit (pcs, kg...)"
-            className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
-          />
-          <input
-            type="number"
-            value={newQty}
-            onChange={(e) => setNewQty(e.target.value)}
-            placeholder="Opening qty"
-            className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
-          />
-          <input
-            type="number"
-            value={newThreshold}
-            onChange={(e) => setNewThreshold(e.target.value)}
-            placeholder="Low-stock alert at"
-            className="w-32 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
-          />
-          <button
-            onClick={addStockItem}
-            className="px-4 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
-          >
-            + Add
-          </button>
+      <section className="bg-sarini-panel border-2 border-sarini-yellow/40 rounded-xl p-4">
+        <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sarini-yellow text-black text-xs font-bold">
+            1
+          </span>
+          Add a New Stock Item
+        </h3>
+        <p className="text-xs text-gray-500 mb-3 ml-7">
+          A raw supply you want to track — e.g. Sausages, Chicken, Cooking Gas.
+        </p>
+        <div className="flex flex-wrap gap-3 ml-7">
+          <Field label="Name">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="e.g. Sausages"
+              className="w-44 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
+            />
+          </Field>
+          <Field label="Unit">
+            <input
+              value={newUnit}
+              onChange={(e) => setNewUnit(e.target.value)}
+              placeholder="pcs, kg, litres..."
+              className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
+            />
+          </Field>
+          <Field label="Opening quantity">
+            <input
+              type="number"
+              value={newQty}
+              onChange={(e) => setNewQty(e.target.value)}
+              placeholder="0"
+              className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
+            />
+          </Field>
+          <Field label="Warn me when at/below">
+            <input
+              type="number"
+              value={newThreshold}
+              onChange={(e) => setNewThreshold(e.target.value)}
+              placeholder="0"
+              className="w-36 rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
+            />
+          </Field>
+          <div className="flex items-end">
+            <button
+              onClick={addStockItem}
+              className="px-4 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
+            >
+              + Add Stock Item
+            </button>
+          </div>
         </div>
       </section>
 
       <section>
-        <h3 className="text-white font-semibold mb-3">Stock Levels</h3>
+        <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sarini-panel-light text-gray-300 text-xs font-bold">
+            2
+          </span>
+          Current Stock Levels
+        </h3>
+        <p className="text-xs text-gray-500 mb-3 ml-7">
+          What you have on hand right now. Use "Restock" when new supplies arrive.
+        </p>
         <div className="space-y-2">
           {items.map((item) => (
             <div key={item.id} className="bg-sarini-panel border border-black/30 rounded-xl p-3">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium">{item.name}</span>
-                  {item.low && (
-                    <span className="text-xs px-2 py-0.5 rounded bg-sarini-rose-bg text-sarini-rose">
-                      Low stock
+              {editingId === item.id ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <Field label="Name">
+                    <input
+                      value={editDraft.name}
+                      onChange={(e) => setEditDraft((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-40 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    />
+                  </Field>
+                  <Field label="Unit">
+                    <input
+                      value={editDraft.unit}
+                      onChange={(e) => setEditDraft((prev) => ({ ...prev, unit: e.target.value }))}
+                      className="w-24 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    />
+                  </Field>
+                  <Field label="Warn me when at/below">
+                    <input
+                      type="number"
+                      value={editDraft.low_stock_threshold}
+                      onChange={(e) => setEditDraft((prev) => ({ ...prev, low_stock_threshold: e.target.value }))}
+                      className="w-36 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    />
+                  </Field>
+                  <button
+                    onClick={() => saveEdit(item.id)}
+                    className="px-3 py-1.5 rounded-md bg-sarini-sage-bg text-sarini-sage text-sm font-medium hover:brightness-110"
+                  >
+                    Save
+                  </button>
+                  <button onClick={cancelEdit} className="text-xs text-gray-400 hover:text-white pb-1.5">
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-medium">{item.name}</span>
+                    {item.low && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-sarini-rose-bg text-sarini-rose">
+                        Low stock
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-sarini-yellow font-semibold">
+                      {item.quantity} {item.unit}
                     </span>
-                  )}
+                    <button
+                      onClick={() => toggleRestock(item.id)}
+                      className="text-xs px-2 py-1 rounded bg-sarini-sage-bg text-sarini-sage hover:brightness-110"
+                    >
+                      {openRestockFor === item.id ? "Close" : "Restock / Adjust"}
+                    </button>
+                    <button
+                      onClick={() => toggleMovements(item.id)}
+                      className="text-xs text-gray-400 hover:text-white"
+                    >
+                      {openMovementsFor === item.id ? "Hide history" : "History"}
+                    </button>
+                    <button onClick={() => startEdit(item)} className="text-xs text-gray-400 hover:text-white">
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deleteStockItem(item.id)}
+                      className="text-xs text-red-400 hover:text-red-300"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <span className="text-sarini-yellow font-semibold">
-                    {item.quantity} {item.unit}
-                  </span>
-                  <button
-                    onClick={() => toggleMovements(item.id)}
-                    className="text-xs text-gray-400 hover:text-white"
-                  >
-                    {openMovementsFor === item.id ? "Hide history" : "History"}
-                  </button>
-                  <button
-                    onClick={() => deleteStockItem(item.id)}
-                    className="text-xs text-red-400 hover:text-red-300"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
+              )}
 
-              <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-black/20">
-                <select
-                  value={draftFor(item.id).reason}
-                  onChange={(e) =>
-                    setMovementDrafts((prev) => ({
-                      ...prev,
-                      [item.id]: { ...draftFor(item.id), reason: e.target.value as "restock" | "adjustment" },
-                    }))
-                  }
-                  className="rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-                >
-                  <option value="restock">Restock (+)</option>
-                  <option value="adjustment">Adjustment (+/-)</option>
-                </select>
-                <input
-                  type="number"
-                  value={draftFor(item.id).change}
-                  onChange={(e) =>
-                    setMovementDrafts((prev) => ({ ...prev, [item.id]: { ...draftFor(item.id), change: e.target.value } }))
-                  }
-                  placeholder="Amount"
-                  className="w-24 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-                />
-                <input
-                  value={draftFor(item.id).note}
-                  onChange={(e) =>
-                    setMovementDrafts((prev) => ({ ...prev, [item.id]: { ...draftFor(item.id), note: e.target.value } }))
-                  }
-                  placeholder="Note (optional)"
-                  className="flex-1 min-w-[120px] rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-                />
-                <button
-                  onClick={() => submitMovement(item.id)}
-                  className="px-3 py-1.5 rounded-md bg-sarini-sage-bg text-sarini-sage text-sm font-medium hover:brightness-110"
-                >
-                  Apply
-                </button>
-              </div>
+              {openRestockFor === item.id && (
+                <div className="flex flex-wrap items-end gap-3 mt-3 pt-3 border-t border-black/20">
+                  <Field label="Type">
+                    <select
+                      value={draftFor(item.id).reason}
+                      onChange={(e) =>
+                        setMovementDrafts((prev) => ({
+                          ...prev,
+                          [item.id]: { ...draftFor(item.id), reason: e.target.value as "restock" | "adjustment" },
+                        }))
+                      }
+                      className="rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    >
+                      <option value="restock">Restock (new delivery, always adds)</option>
+                      <option value="adjustment">Adjustment (correction, breakage/spoilage — can be negative)</option>
+                    </select>
+                  </Field>
+                  <Field label="Amount">
+                    <input
+                      type="number"
+                      value={draftFor(item.id).change}
+                      onChange={(e) =>
+                        setMovementDrafts((prev) => ({ ...prev, [item.id]: { ...draftFor(item.id), change: e.target.value } }))
+                      }
+                      placeholder="0"
+                      className="w-24 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    />
+                  </Field>
+                  <Field label="Note (optional)">
+                    <input
+                      value={draftFor(item.id).note}
+                      onChange={(e) =>
+                        setMovementDrafts((prev) => ({ ...prev, [item.id]: { ...draftFor(item.id), note: e.target.value } }))
+                      }
+                      placeholder="e.g. Delivery from supplier"
+                      className="w-56 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                    />
+                  </Field>
+                  <button
+                    onClick={() => submitMovement(item.id)}
+                    className="px-3 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
 
               {openMovementsFor === item.id && (
-                <div className="mt-3 pt-3 border-t border-black/20">
+                <div className="mt-3 pt-3 border-t border-black/20 overflow-x-auto">
+                  <p className="text-xs text-gray-500 mb-2">
+                    Every change to this item: restocks, sales (with order #), and corrections.
+                  </p>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-left text-gray-500">
@@ -290,8 +455,8 @@ export function AdminStock() {
                     <tbody>
                       {movements.map((m) => (
                         <tr key={m.id} className="border-t border-black/20">
-                          <td className="py-1 pr-3 text-gray-400">{formatServerDate(m.created_at)}</td>
-                          <td className="py-1 pr-3 text-gray-300 capitalize">
+                          <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{formatServerDate(m.created_at)}</td>
+                          <td className="py-1 pr-3 text-gray-300 capitalize whitespace-nowrap">
                             {m.reason}
                             {m.order_id && ` (order #${m.order_id})`}
                           </td>
@@ -303,7 +468,7 @@ export function AdminStock() {
                             {m.change >= 0 ? "+" : ""}
                             {m.change}
                           </td>
-                          <td className="py-1 pr-3 text-gray-400">{m.created_by_name ?? "—"}</td>
+                          <td className="py-1 pr-3 text-gray-400 whitespace-nowrap">{m.created_by_name ?? "—"}</td>
                           <td className="py-1 text-gray-400">{m.note ?? "—"}</td>
                         </tr>
                       ))}
@@ -321,32 +486,42 @@ export function AdminStock() {
             </div>
           ))}
           {items.length === 0 && (
-            <div className="text-gray-500 text-sm">No stock items yet. Add one above.</div>
+            <div className="text-gray-500 text-sm ml-7">No stock items yet. Add one above.</div>
           )}
         </div>
       </section>
 
       <section className="bg-sarini-panel border border-black/30 rounded-xl p-4">
-        <h3 className="text-white font-semibold mb-3">Dish Recipes</h3>
-        <p className="text-xs text-gray-500 mb-3">
-          Link a dish to the stock it uses, so stock deducts automatically when it's sold. Dishes with no
-          recipe here are never deducted.
+        <h3 className="text-white font-semibold mb-1 flex items-center gap-2">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-sarini-panel-light text-gray-300 text-xs font-bold">
+            3
+          </span>
+          Link Stock to a Dish (Recipe)
+        </h3>
+        <p className="text-xs text-gray-500 mb-3 ml-7">
+          Tell the system which stock a dish uses, and how much per sale — e.g. "Mixed Grill uses 2
+          Sausages." Once linked, that stock deducts automatically every time the dish is sold. Dishes with
+          nothing linked here are never deducted.
         </p>
-        <select
-          value={recipeMenuItemId}
-          onChange={(e) => (e.target.value ? loadRecipe(Number(e.target.value)) : setRecipeMenuItemId(""))}
-          className="w-full max-w-sm rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white mb-3"
-        >
-          <option value="">Select a dish...</option>
-          {allMenuItems.map((mi) => (
-            <option key={mi.id} value={mi.id}>
-              {mi.categoryName} — {mi.name}
-            </option>
-          ))}
-        </select>
+        <div className="ml-7">
+          <Field label="Search for a dish">
+            <input
+              list="admin-stock-dish-options"
+              value={selectedDish ? dishLabel(selectedDish) : dishQuery}
+              onChange={(e) => handleDishQueryChange(e.target.value)}
+              placeholder="Start typing a dish name..."
+              className="w-full max-w-sm rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
+            />
+          </Field>
+          <datalist id="admin-stock-dish-options">
+            {allMenuItems.map((mi) => (
+              <option key={mi.id} value={dishLabel(mi)} />
+            ))}
+          </datalist>
+        </div>
 
         {recipeMenuItemId && (
-          <div className="space-y-2">
+          <div className="space-y-2 mt-3 ml-7">
             {recipe.map((ing) => (
               <div
                 key={ing.stock_item_id}
@@ -358,38 +533,44 @@ export function AdminStock() {
                     {ing.qty_per_unit} {ing.stock_item_unit} per sale
                   </span>
                   <button
-                    onClick={() => removeIngredient(ing.stock_item_id)}
+                    onClick={() => unlinkIngredient(ing.stock_item_id)}
                     className="text-xs text-red-400 hover:text-red-300"
                   >
-                    Remove
+                    Unlink
                   </button>
                 </div>
               </div>
             ))}
             {recipe.length === 0 && (
-              <div className="text-gray-500 text-sm">No stock linked to this dish yet.</div>
+              <div className="text-gray-500 text-sm">Nothing linked to this dish yet.</div>
             )}
 
-            <div className="flex flex-wrap gap-2 pt-2">
-              <select
-                value={recipeDraft.stock_item_id}
-                onChange={(e) => setRecipeDraft((prev) => ({ ...prev, stock_item_id: e.target.value }))}
-                className="flex-1 min-w-[140px] rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-              >
-                <option value="">Select stock item...</option>
-                {items.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} ({i.unit})
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                value={recipeDraft.qty_per_unit}
-                onChange={(e) => setRecipeDraft((prev) => ({ ...prev, qty_per_unit: e.target.value }))}
-                placeholder="Qty per sale"
-                className="w-32 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-              />
+            <div className="flex flex-wrap items-end gap-3 pt-2">
+              <Field label="Stock item">
+                <select
+                  value={recipeDraft.stock_item_id}
+                  onChange={(e) => setRecipeDraft((prev) => ({ ...prev, stock_item_id: e.target.value }))}
+                  className="w-48 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                >
+                  <option value="">Select...</option>
+                  {items
+                    .filter((i) => !recipe.some((r) => r.stock_item_id === i.id))
+                    .map((i) => (
+                      <option key={i.id} value={i.id}>
+                        {i.name} ({i.unit})
+                      </option>
+                    ))}
+                </select>
+              </Field>
+              <Field label="Qty per sale">
+                <input
+                  type="number"
+                  value={recipeDraft.qty_per_unit}
+                  onChange={(e) => setRecipeDraft((prev) => ({ ...prev, qty_per_unit: e.target.value }))}
+                  placeholder="e.g. 2"
+                  className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                />
+              </Field>
               <button
                 onClick={addIngredientToRecipe}
                 className="px-3 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"

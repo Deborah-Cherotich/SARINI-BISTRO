@@ -115,7 +115,7 @@ export function Reports() {
 
   async function resetSalesData() {
     const typed = window.prompt(
-      'This permanently deletes every order and sale on record (menu, tables, and staff accounts are kept). Type RESET to confirm.'
+      'This permanently deletes every order and sale on record, and resets all stock quantities/history to zero (menu, tables, staff accounts, stock items, and dish recipes are kept). Type RESET to confirm.'
     );
     if (typed !== "RESET") return;
     try {
