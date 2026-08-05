@@ -216,7 +216,8 @@ export function AdminStock() {
 
   const allMenuItems = categories.flatMap((c) => c.items.map((i) => ({ ...i, categoryName: c.name })));
   const dishLabel = (mi: { categoryName: string; name: string }) => `${mi.categoryName} — ${mi.name}`;
-  const selectedDish = allMenuItems.find((mi) => mi.id === recipeMenuItemId);
+  const selectedDishForHeading = allMenuItems.find((mi) => mi.id === recipeMenuItemId);
+  const draftStockUnit = items.find((i) => i.id === Number(recipeDraft.stock_item_id))?.unit;
 
   function handleDishQueryChange(value: string) {
     setDishQuery(value);
@@ -507,7 +508,7 @@ export function AdminStock() {
           <Field label="Search for a dish">
             <input
               list="admin-stock-dish-options"
-              value={selectedDish ? dishLabel(selectedDish) : dishQuery}
+              value={dishQuery}
               onChange={(e) => handleDishQueryChange(e.target.value)}
               placeholder="Start typing a dish name..."
               className="w-full max-w-sm rounded-md bg-sarini-panel-light border border-gray-700 px-3 py-1.5 text-sm text-white"
@@ -520,63 +521,104 @@ export function AdminStock() {
           </datalist>
         </div>
 
+        {!recipeMenuItemId && (
+          <div className="ml-7 mt-3 text-sm text-gray-500 italic">
+            Pick a dish above to see and edit what stock it uses.
+          </div>
+        )}
+
         {recipeMenuItemId && (
-          <div className="space-y-2 mt-3 ml-7">
-            {recipe.map((ing) => (
-              <div
-                key={ing.stock_item_id}
-                className="flex items-center justify-between bg-sarini-panel-light rounded-md px-3 py-2 text-sm"
-              >
-                <span className="text-white">{ing.stock_item_name}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400">
-                    {ing.qty_per_unit} {ing.stock_item_unit} per sale
-                  </span>
-                  <button
-                    onClick={() => unlinkIngredient(ing.stock_item_id)}
-                    className="text-xs text-red-400 hover:text-red-300"
-                  >
-                    Unlink
-                  </button>
-                </div>
+          <div className="mt-3 ml-7 bg-sarini-panel-light/40 border border-black/20 rounded-lg p-3">
+            <h4 className="text-white text-sm font-semibold mb-2">
+              Recipe for <span className="text-sarini-yellow">{dishLabel(selectedDishForHeading!)}</span>
+            </h4>
+
+            {recipe.length > 0 ? (
+              <table className="w-full text-sm mb-3">
+                <thead>
+                  <tr className="text-left text-gray-500 text-xs uppercase tracking-wide">
+                    <th className="pb-1 pr-3 font-medium">Stock item</th>
+                    <th className="pb-1 pr-3 font-medium">Used per order</th>
+                    <th className="pb-1 font-medium text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recipe.map((ing) => (
+                    <tr key={ing.stock_item_id} className="border-t border-black/20">
+                      <td className="py-2 pr-3 text-white">{ing.stock_item_name}</td>
+                      <td className="py-2 pr-3 text-gray-300">
+                        {ing.qty_per_unit} {ing.stock_item_unit}
+                      </td>
+                      <td className="py-2 text-right">
+                        <button
+                          onClick={() => unlinkIngredient(ing.stock_item_id)}
+                          className="text-xs text-red-400 hover:text-red-300"
+                        >
+                          Unlink
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="text-gray-500 text-sm mb-3">
+                Nothing linked yet — this dish won't deduct any stock when it's sold.
               </div>
-            ))}
-            {recipe.length === 0 && (
-              <div className="text-gray-500 text-sm">Nothing linked to this dish yet.</div>
             )}
 
-            <div className="flex flex-wrap items-end gap-3 pt-2">
-              <Field label="Stock item">
-                <select
-                  value={recipeDraft.stock_item_id}
-                  onChange={(e) => setRecipeDraft((prev) => ({ ...prev, stock_item_id: e.target.value }))}
-                  className="w-48 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+            <div className="pt-3 border-t border-black/20">
+              <p className="text-xs text-gray-500 mb-2">Link another stock item to this dish:</p>
+              <div className="flex flex-wrap items-end gap-3">
+                <Field label="Stock item">
+                  <select
+                    value={recipeDraft.stock_item_id}
+                    onChange={(e) => setRecipeDraft((prev) => ({ ...prev, stock_item_id: e.target.value }))}
+                    className="w-48 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                  >
+                    <option value="">Select...</option>
+                    {items
+                      .filter((i) => !recipe.some((r) => r.stock_item_id === i.id))
+                      .map((i) => (
+                        <option key={i.id} value={i.id}>
+                          {i.name} ({i.unit})
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field
+                  label={
+                    draftStockUnit ? `How many ${draftStockUnit} per order?` : "Quantity used per order"
+                  }
                 >
-                  <option value="">Select...</option>
-                  {items
-                    .filter((i) => !recipe.some((r) => r.stock_item_id === i.id))
-                    .map((i) => (
-                      <option key={i.id} value={i.id}>
-                        {i.name} ({i.unit})
-                      </option>
-                    ))}
-                </select>
-              </Field>
-              <Field label="Qty per sale">
-                <input
-                  type="number"
-                  value={recipeDraft.qty_per_unit}
-                  onChange={(e) => setRecipeDraft((prev) => ({ ...prev, qty_per_unit: e.target.value }))}
-                  placeholder="e.g. 2"
-                  className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
-                />
-              </Field>
-              <button
-                onClick={addIngredientToRecipe}
-                className="px-3 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark"
-              >
-                + Link
-              </button>
+                  <input
+                    type="number"
+                    value={recipeDraft.qty_per_unit}
+                    onChange={(e) => setRecipeDraft((prev) => ({ ...prev, qty_per_unit: e.target.value }))}
+                    placeholder="e.g. 2"
+                    className="w-28 rounded-md bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-sm text-white"
+                  />
+                </Field>
+                <button
+                  onClick={addIngredientToRecipe}
+                  disabled={!recipeDraft.stock_item_id || !recipeDraft.qty_per_unit}
+                  title={
+                    !recipeDraft.stock_item_id
+                      ? "Pick a stock item first"
+                      : !recipeDraft.qty_per_unit
+                        ? "Enter a quantity per sale"
+                        : undefined
+                  }
+                  className="px-3 py-1.5 rounded-md bg-sarini-yellow text-black text-sm font-medium hover:bg-sarini-yellow-dark disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-sarini-yellow"
+                >
+                  + Link
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Example: if the Mixed Grill uses 2 sausages per order, pick "Sausages" and enter{" "}
+                <span className="text-gray-300">2</span>. Every time this dish is sold, 2 sausages get
+                deducted from stock automatically.
+              </p>
             </div>
           </div>
         )}
