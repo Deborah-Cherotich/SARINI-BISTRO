@@ -57,7 +57,10 @@ router.get("/open", (req, res) => {
   res.json(orders.map((o) => getOrderWithItems(o.id)));
 });
 
-router.get("/history", requireRole("admin"), (req, res) => {
+// Any logged-in staff member can look up past orders (e.g. a cashier
+// re-opening a paid order to add an item and reprint) — the revenue/sales
+// breakdown in reports.js is what stays admin-only, not this raw order list.
+router.get("/history", (req, res) => {
   const { from, to, status, q } = req.query;
   let sql = "SELECT * FROM orders WHERE 1=1";
   const params = [];

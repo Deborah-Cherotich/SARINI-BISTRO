@@ -38,12 +38,8 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <nav className="flex gap-1 sm:gap-2 overflow-x-auto">
             <NavItem to="/">Tables</NavItem>
-            {user?.role === "admin" && (
-              <>
-                <NavItem to="/reports">Reports</NavItem>
-                <NavItem to="/admin">Admin</NavItem>
-              </>
-            )}
+            <NavItem to="/reports">{user?.role === "admin" ? "Reports" : "Order History"}</NavItem>
+            {user?.role === "admin" && <NavItem to="/admin">Admin</NavItem>}
           </nav>
         </div>
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">

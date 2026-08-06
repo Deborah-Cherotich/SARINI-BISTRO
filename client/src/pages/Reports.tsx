@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Order } from "../types";
 import { formatMoney, formatServerDate } from "../format";
+import { useAuth } from "../context/AuthContext";
 
 interface RangeReport {
   from: string;
@@ -53,6 +54,8 @@ const PERIODS: { value: Period; label: string }[] = [
 
 export function Reports() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [period, setPeriod] = useState<Period>("today");
   const [from, setFrom] = useState(today());
   const [to, setTo] = useState(today());
@@ -81,9 +84,13 @@ export function Reports() {
     try {
       const historyParams = new URLSearchParams({ from, to });
       if (historyQuery.trim()) historyParams.set("q", historyQuery.trim());
+      // Revenue/sales-breakdown endpoints are admin-only on the server —
+      // skip calling them for a cashier so they don't just error out.
       const [r, t, h] = await Promise.all([
-        api.get<RangeReport>(`/reports/range?from=${from}&to=${to}`),
-        api.get<TopItem[]>(`/reports/top-items?from=${from}&to=${to}&limit=10`),
+        isAdmin ? api.get<RangeReport>(`/reports/range?from=${from}&to=${to}`) : Promise.resolve(null),
+        isAdmin
+          ? api.get<TopItem[]>(`/reports/top-items?from=${from}&to=${to}&limit=10`)
+          : Promise.resolve([]),
         api.get<Order[]>(`/orders/history?${historyParams.toString()}`),
       ]);
       setRange(r);
@@ -133,13 +140,15 @@ export function Reports() {
   return (
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <h1 className="text-xl font-semibold text-white">Reports</h1>
-        <button
-          onClick={resetSalesData}
-          className="text-xs px-3 py-1.5 rounded-md border border-red-800 text-red-400 hover:bg-red-950/40"
-        >
-          Reset Sales Data
-        </button>
+        <h1 className="text-xl font-semibold text-white">{isAdmin ? "Reports" : "Order History"}</h1>
+        {isAdmin && (
+          <button
+            onClick={resetSalesData}
+            className="text-xs px-3 py-1.5 rounded-md border border-red-800 text-red-400 hover:bg-red-950/40"
+          >
+            Reset Sales Data
+          </button>
+        )}
       </div>
 
       {error && (
@@ -148,97 +157,101 @@ export function Reports() {
         </div>
       )}
 
-      <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-        <div className="flex flex-wrap gap-2 mb-4">
-          {PERIODS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => selectPeriod(p.value)}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                period === p.value
-                  ? "bg-sarini-yellow text-black"
-                  : "bg-sarini-panel-light text-gray-300 hover:text-white"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-
-        {period === "custom" && (
-          <div className="flex flex-wrap items-end gap-4 mb-4 pt-2 border-t border-black/30">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400">From</label>
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-                className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400">To</label>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-                className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
-              />
-            </div>
-          </div>
-        )}
-
-        <div>
-          <div className="text-gray-400 text-sm">
-            {periodLabel} {from !== to && `(${from} → ${to})`}
-          </div>
-          <div className="text-3xl font-semibold text-sarini-yellow mt-1">
-            {range ? formatMoney(range.grandTotal) : "—"}
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            {range?.days.reduce((sum, d) => sum + d.orderCount, 0) ?? 0} orders
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-white font-semibold mb-3">Sales Breakdown</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-            <h3 className="text-white font-medium mb-3">Sales by Day</h3>
-            <div className="space-y-2">
-              {range?.days.map((d) => (
-                <div key={d.day} className="flex justify-between text-sm">
-                  <span className="text-gray-300">{d.day}</span>
-                  <span className="text-gray-400">{d.orderCount} orders</span>
-                  <span className="text-sarini-yellow">{formatMoney(d.total)}</span>
-                </div>
-              ))}
-              {range?.days.length === 0 && (
-                <div className="text-gray-500 text-sm">No sales in this period.</div>
-              )}
-            </div>
+      {isAdmin && (
+        <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+          <div className="flex flex-wrap gap-2 mb-4">
+            {PERIODS.map((p) => (
+              <button
+                key={p.value}
+                onClick={() => selectPeriod(p.value)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  period === p.value
+                    ? "bg-sarini-yellow text-black"
+                    : "bg-sarini-panel-light text-gray-300 hover:text-white"
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
 
-          <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
-            <h3 className="text-white font-medium mb-3">Top Selling Items</h3>
-            <div className="space-y-2">
-              {topItems.map((item, i) => (
-                <div key={item.name} className="flex justify-between text-sm">
-                  <span className="text-gray-300">
-                    {i + 1}. {item.name}
-                  </span>
-                  <span className="text-gray-400">{item.quantity} sold</span>
-                  <span className="text-sarini-yellow">{formatMoney(item.revenue)}</span>
-                </div>
-              ))}
-              {topItems.length === 0 && (
-                <div className="text-gray-500 text-sm">No sales data yet.</div>
-              )}
+          {period === "custom" && (
+            <div className="flex flex-wrap items-end gap-4 mb-4 pt-2 border-t border-black/30">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400">From</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-gray-400">To</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
+                />
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="text-gray-400 text-sm">
+              {periodLabel} {from !== to && `(${from} → ${to})`}
+            </div>
+            <div className="text-3xl font-semibold text-sarini-yellow mt-1">
+              {range ? formatMoney(range.grandTotal) : "—"}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">
+              {range?.days.reduce((sum, d) => sum + d.orderCount, 0) ?? 0} orders
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {isAdmin && (
+        <section>
+          <h2 className="text-white font-semibold mb-3">Sales Breakdown</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+              <h3 className="text-white font-medium mb-3">Sales by Day</h3>
+              <div className="space-y-2">
+                {range?.days.map((d) => (
+                  <div key={d.day} className="flex justify-between text-sm">
+                    <span className="text-gray-300">{d.day}</span>
+                    <span className="text-gray-400">{d.orderCount} orders</span>
+                    <span className="text-sarini-yellow">{formatMoney(d.total)}</span>
+                  </div>
+                ))}
+                {range?.days.length === 0 && (
+                  <div className="text-gray-500 text-sm">No sales in this period.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-sarini-panel border border-black/30 rounded-xl p-5">
+              <h3 className="text-white font-medium mb-3">Top Selling Items</h3>
+              <div className="space-y-2">
+                {topItems.map((item, i) => (
+                  <div key={item.name} className="flex justify-between text-sm">
+                    <span className="text-gray-300">
+                      {i + 1}. {item.name}
+                    </span>
+                    <span className="text-gray-400">{item.quantity} sold</span>
+                    <span className="text-sarini-yellow">{formatMoney(item.revenue)}</span>
+                  </div>
+                ))}
+                {topItems.length === 0 && (
+                  <div className="text-gray-500 text-sm">No sales data yet.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
         <div className="flex items-baseline justify-between mb-3 gap-4 flex-wrap">
@@ -273,7 +286,7 @@ export function Reports() {
                 <th className="py-2 pr-4">Status</th>
                 <th className="py-2 pr-4">Created</th>
                 <th className="py-2 pr-4 text-right">Total</th>
-                <th className="py-2 text-right">Actions</th>
+                {isAdmin && <th className="py-2 text-right">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -304,22 +317,24 @@ export function Reports() {
                   <td className="py-2 pr-4 text-right text-sarini-yellow">
                     {formatMoney(o.total)}
                   </td>
-                  <td className="py-2 text-right">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteOrder(o.id);
-                      }}
-                      className="text-xs px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </td>
+                  {isAdmin && (
+                    <td className="py-2 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteOrder(o.id);
+                        }}
+                        className="text-xs px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
               {history.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="py-4 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 6 : 5} className="py-4 text-center text-gray-500">
                     No orders in this period.
                   </td>
                 </tr>
