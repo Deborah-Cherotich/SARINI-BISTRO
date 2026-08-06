@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api";
 import type { Order } from "../types";
 import { formatMoney, formatServerDate } from "../format";
@@ -51,6 +52,7 @@ const PERIODS: { value: Period; label: string }[] = [
 ];
 
 export function Reports() {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("today");
   const [from, setFrom] = useState(today());
   const [to, setTo] = useState(today());
@@ -240,7 +242,10 @@ export function Reports() {
 
       <section className="bg-sarini-panel border border-black/30 rounded-xl p-5">
         <div className="flex items-baseline justify-between mb-3 gap-4 flex-wrap">
-          <h2 className="text-white font-semibold">Order History ({periodLabel})</h2>
+          <div>
+            <h2 className="text-white font-semibold">Order History ({periodLabel})</h2>
+            <p className="text-xs text-gray-500">Click an order to view it, add extra items, or reprint the receipt.</p>
+          </div>
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -273,7 +278,11 @@ export function Reports() {
             </thead>
             <tbody>
               {history.map((o) => (
-                <tr key={o.id} className="border-b border-black/20">
+                <tr
+                  key={o.id}
+                  onClick={() => navigate(`/order/${o.id}`)}
+                  className="border-b border-black/20 cursor-pointer hover:bg-sarini-panel-light/40"
+                >
                   <td className="py-2 pr-4 text-white">#{o.id}</td>
                   <td className="py-2 pr-4 text-gray-300">
                     {o.table ? o.table.label : "Takeaway"}
@@ -297,7 +306,10 @@ export function Reports() {
                   </td>
                   <td className="py-2 text-right">
                     <button
-                      onClick={() => deleteOrder(o.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteOrder(o.id);
+                      }}
                       className="text-xs px-3 py-1.5 rounded-md bg-red-700 text-white hover:bg-red-600"
                     >
                       Delete

@@ -38,9 +38,13 @@ export function OrderScreen() {
   async function addItem(menuItemId: number) {
     if (!order) return;
     setError(null);
-    const existing = order.items.find(
-      (i) => i.menu_item_id === menuItemId && i.kitchen_status === "pending"
-    );
+    // Once an order is paid, never fold a new item into an existing line —
+    // that line may already have been charged and printed. Always add a
+    // fresh row so it's clearly a post-payment addition.
+    const existing =
+      order.status === "open"
+        ? order.items.find((i) => i.menu_item_id === menuItemId && i.kitchen_status === "pending")
+        : undefined;
     try {
       if (existing) {
         await api.patch(`/orders/${order.id}/items/${existing.id}`, { qty: existing.qty + 1 });
@@ -163,6 +167,13 @@ export function OrderScreen() {
         <div className="shrink-0 text-xs sm:text-sm text-gray-400">Order #{order.id} · {order.status}</div>
       </div>
 
+      {order.status === "paid" && (
+        <div className="mb-4 text-sm text-sarini-yellow bg-sarini-yellow/10 border border-sarini-yellow/30 rounded-md px-3 py-2">
+          This order is already paid. You can still tap items below to add extras (e.g. another
+          drink) — they'll be added to the bill and you can reprint the receipt below.
+        </div>
+      )}
+
       {error && (
         <div className="mb-4 text-sm text-red-400 bg-red-950/40 border border-red-900 rounded-md px-3 py-2">
           {error}
@@ -191,7 +202,7 @@ export function OrderScreen() {
               <button
                 key={item.id}
                 onClick={() => addItem(item.id)}
-                disabled={order.status !== "open"}
+                disabled={order.status !== "open" && order.status !== "paid"}
                 className="text-left self-start bg-sarini-panel hover:bg-sarini-panel-light rounded-lg border border-black/30 disabled:opacity-50"
               >
                 <ItemThumb
@@ -310,6 +321,14 @@ export function OrderScreen() {
                   </button>
                 )}
               </div>
+            )}
+            {order.status === "paid" && order.items.some((i) => i.kitchen_status === "pending") && (
+              <button
+                onClick={sendToKitchen}
+                className="w-full py-2.5 rounded-md border border-sarini-yellow text-sarini-yellow font-medium hover:bg-sarini-yellow/10"
+              >
+                Send New Items to Kitchen
+              </button>
             )}
             {order.status === "paid" && (
               <button

@@ -121,7 +121,13 @@ router.post("/", (req, res) => {
 router.post("/:id/items", (req, res) => {
   const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
   if (!order) return res.status(404).json({ error: "Order not found" });
-  if (order.status !== "open") return res.status(400).json({ error: "Order is not open" });
+  // A customer who's already paid sometimes decides to add one more dish or
+  // drink — that's normal, not a mistake. We allow adding to a paid order
+  // (but never editing/removing what's already been charged, see the PATCH
+  // route below) so staff can top it up and reprint an updated receipt.
+  if (order.status !== "open" && order.status !== "paid") {
+    return res.status(400).json({ error: "Order is not open" });
+  }
 
   const { menu_item_id, qty = 1, notes = null } = req.body || {};
   if (!isValidQty(qty)) {
@@ -130,11 +136,31 @@ router.post("/:id/items", (req, res) => {
   const menuItem = db.prepare("SELECT * FROM menu_items WHERE id = ?").get(menu_item_id);
   if (!menuItem) return res.status(404).json({ error: "Menu item not found" });
 
-  db.prepare(
-    "INSERT INTO order_items (order_id, menu_item_id, name_snapshot, price_snapshot, qty, notes) VALUES (?, ?, ?, ?, ?, ?)"
-  ).run(order.id, menuItem.id, menuItem.name, menuItem.price, qty, notes);
+  const tx = db.transaction(() => {
+    db.prepare(
+      "INSERT INTO order_items (order_id, menu_item_id, name_snapshot, price_snapshot, qty, notes) VALUES (?, ?, ?, ?, ?, ?)"
+    ).run(order.id, menuItem.id, menuItem.name, menuItem.price, qty, notes);
 
-  recalcTotals(order.id);
+    // Items added to an already-open order have their stock deducted later,
+    // in one pass at checkout. An order that's already paid will never go
+    // through checkout again, so an item added after payment needs its
+    // stock deducted immediately or it would never be tracked at all.
+    if (order.status === "paid") {
+      const ingredients = db
+        .prepare("SELECT * FROM menu_item_ingredients WHERE menu_item_id = ?")
+        .all(menuItem.id);
+      for (const ing of ingredients) {
+        applyStockMovement(ing.stock_item_id, -(ing.qty_per_unit * qty), "sale", {
+          orderId: order.id,
+          userId: req.user.id,
+        });
+      }
+    }
+
+    recalcTotals(order.id);
+  });
+  tx();
+
   res.status(201).json(getOrderWithItems(order.id));
 });
 
