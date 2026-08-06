@@ -73,6 +73,10 @@ router.get("/top-items", (req, res) => {
 // Wipes all order/sales history so a business can go live with a clean
 // slate after testing — deliberately leaves the menu, tables, and staff
 // accounts untouched, since those are real setup work, not test data.
+// Stock quantities/history get the same treatment as orders: the stock
+// items and their dish recipes (also real setup work) are kept, but test
+// quantities and the movement log are wiped back to zero, since those are
+// just as much "test data" as the orders that produced them.
 router.post("/reset-sales-data", (req, res) => {
   if (req.body?.confirm !== "RESET") {
     return res.status(400).json({ error: 'Send { "confirm": "RESET" } to proceed.' });
@@ -81,6 +85,8 @@ router.post("/reset-sales-data", (req, res) => {
     db.prepare("DELETE FROM order_items").run();
     db.prepare("DELETE FROM orders").run();
     db.prepare("UPDATE tables SET status = 'free'").run();
+    db.prepare("DELETE FROM stock_movements").run();
+    db.prepare("UPDATE stock_items SET quantity = 0").run();
   });
   tx();
   res.json({ ok: true });

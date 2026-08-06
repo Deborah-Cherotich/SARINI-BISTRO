@@ -87,13 +87,37 @@ router.put("/:id", requireRole("admin"), (req, res) => {
 });
 
 router.delete("/:id", requireRole("admin"), (req, res) => {
-  const inUse = db
-    .prepare("SELECT COUNT(*) AS c FROM menu_item_ingredients WHERE stock_item_id = ?")
-    .get(req.params.id).c;
-  if (inUse > 0) {
-    return res.status(400).json({ error: "Cannot delete a stock item that is still used in a menu item recipe" });
+  const existing = db.prepare("SELECT * FROM stock_items WHERE id = ?").get(req.params.id);
+  if (!existing) return res.status(404).json({ error: "Stock item not found" });
+
+  const usedBy = db
+    .prepare(
+      `SELECT m.name FROM menu_item_ingredients mi
+       JOIN menu_items m ON m.id = mi.menu_item_id
+       WHERE mi.stock_item_id = ?
+       ORDER BY m.name`
+    )
+    .all(req.params.id);
+
+  // Default behaviour still blocks the delete, so an accidental click can't
+  // silently break a dish's stock tracking. Passing ?force=true (used after
+  // the admin confirms in the UI) unlinks it from every dish first, then
+  // proceeds with the delete in the same transaction.
+  if (usedBy.length > 0 && req.query.force !== "true") {
+    return res.status(400).json({
+      error: `Still used by: ${usedBy.map((u) => u.name).join(", ")}`,
+      usedBy: usedBy.map((u) => u.name),
+    });
   }
-  db.prepare("UPDATE stock_items SET active = 0 WHERE id = ?").run(req.params.id);
+
+  const tx = db.transaction(() => {
+    if (usedBy.length > 0) {
+      db.prepare("DELETE FROM menu_item_ingredients WHERE stock_item_id = ?").run(req.params.id);
+    }
+    db.prepare("UPDATE stock_items SET active = 0 WHERE id = ?").run(req.params.id);
+  });
+  tx();
+
   res.status(204).end();
 });
 
