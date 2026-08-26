@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
 import type { Category, Order } from "../types";
-import { formatMoney } from "../format";
+import { formatMoney, parseServerDate } from "../format";
 import { KitchenTicket } from "../components/KitchenTicket";
 import { Receipt } from "../components/Receipt";
+import { NewItemsReceipt } from "../components/NewItemsReceipt";
 import { ItemThumb } from "../components/ItemThumb";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,7 +17,7 @@ export function OrderScreen() {
   const [order, setOrder] = useState<Order | null>(null);
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [printMode, setPrintMode] = useState<"kitchen" | "receipt" | null>(null);
+  const [printMode, setPrintMode] = useState<"kitchen" | "receipt" | "new-items" | null>(null);
 
   async function loadMenu() {
     const data = await api.get<Category[]>("/menu");
@@ -149,6 +150,14 @@ export function OrderScreen() {
   }
 
   const activeItems = categories.find((c) => c.id === activeCategory)?.items || [];
+
+  // Items added after checkout (e.g. an extra drink) never made it onto the
+  // receipt that already printed, since that receipt was fixed at the
+  // moment of payment. Anything with a created_at after closed_at is new.
+  const newItemsSincePaid =
+    order.status === "paid" && order.closed_at
+      ? order.items.filter((item) => parseServerDate(item.created_at) > parseServerDate(order.closed_at!))
+      : [];
 
   return (
     <div className="flex flex-col lg:h-[calc(100vh-6rem)]">
@@ -330,6 +339,14 @@ export function OrderScreen() {
                 Send New Items to Kitchen
               </button>
             )}
+            {order.status === "paid" && newItemsSincePaid.length > 0 && (
+              <button
+                onClick={() => setPrintMode("new-items")}
+                className="w-full py-2.5 rounded-md bg-sarini-yellow text-black font-semibold hover:bg-sarini-yellow-dark"
+              >
+                Print New Items ({newItemsSincePaid.length})
+              </button>
+            )}
             {order.status === "paid" && (
               <button
                 onClick={() => setPrintMode("receipt")}
@@ -345,7 +362,9 @@ export function OrderScreen() {
       {printMode && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-3">
           <div className="bg-sarini-panel rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto max-w-full">
-            {printMode === "kitchen" ? <KitchenTicket order={order} /> : <Receipt order={order} />}
+            {printMode === "kitchen" && <KitchenTicket order={order} />}
+            {printMode === "receipt" && <Receipt order={order} />}
+            {printMode === "new-items" && <NewItemsReceipt order={order} newItems={newItemsSincePaid} />}
             <div className="flex gap-2 mt-4">
               <button
                 onClick={closePrint}

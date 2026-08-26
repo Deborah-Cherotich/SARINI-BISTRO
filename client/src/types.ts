@@ -42,6 +42,7 @@ export interface OrderItem {
   qty: number;
   notes: string | null;
   kitchen_status: "pending" | "sent";
+  created_at: string;
 }
 
 export interface Order {

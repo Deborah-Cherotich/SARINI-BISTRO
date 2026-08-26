@@ -1,4 +1,5 @@
 import type { Order } from "../types";
+import { formatMoney } from "../format";
 
 export function KitchenTicket({ order }: { order: Order }) {
   return (
@@ -19,12 +20,21 @@ export function KitchenTicket({ order }: { order: Order }) {
         <span>Order #{order.id}</span>
         <span>{new Date().toLocaleTimeString()}</span>
       </div>
+      {order.created_by_name && (
+        <div className="flex justify-between mb-1">
+          <span>Started by</span>
+          <span>{order.created_by_name}</span>
+        </div>
+      )}
       <div className="border-t border-dashed border-black my-1" />
       {order.items.map((item) => (
         <div key={item.id} className="mb-1">
           <div className="flex justify-between font-semibold">
             <span>{item.name_snapshot}</span>
             <span>x{item.qty}</span>
+          </div>
+          <div className="flex justify-end text-[10px]">
+            <span>{formatMoney(item.price_snapshot * item.qty)}</span>
           </div>
           {item.notes && <div className="italic">Note: {item.notes}</div>}
         </div>
