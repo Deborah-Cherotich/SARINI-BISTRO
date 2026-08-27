@@ -1,7 +1,5 @@
 import type { Order } from "../types";
 import { formatMoney, formatServerDate } from "../format";
-import sariniQr from "../assets/sarini-qr.png";
-
 export function Receipt({ order }: { order: Order }) {
   return (
     <div
@@ -78,11 +76,6 @@ export function Receipt({ order }: { order: Order }) {
           <span>Account No.</span>
           <span className="font-bold">31310</span>
         </div>
-      </div>
-      <div className="border-t border-dashed border-black my-1" />
-      <div className="text-center">
-        <img src={sariniQr} alt="Scan to visit our website" className="w-20 h-20 mx-auto" />
-        <div className="font-semibold mt-0.5">Scan to visit our website</div>
       </div>
       <div className="border-t border-dashed border-black my-1" />
       <div className="text-center mt-1">

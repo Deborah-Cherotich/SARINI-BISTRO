@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api";
-import type { Category, Order } from "../types";
+import type { Category, Order, OrderItem } from "../types";
 import { formatMoney, parseServerDate } from "../format";
 import { KitchenTicket } from "../components/KitchenTicket";
 import { Receipt } from "../components/Receipt";
@@ -18,6 +18,7 @@ export function OrderScreen() {
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [printMode, setPrintMode] = useState<"kitchen" | "receipt" | "new-items" | null>(null);
+  const [kitchenItems, setKitchenItems] = useState<OrderItem[] | undefined>(undefined);
 
   async function loadMenu() {
     const data = await api.get<Category[]>("/menu");
@@ -93,6 +94,11 @@ export function OrderScreen() {
 
   async function sendToKitchen() {
     if (!order || order.items.length === 0) return;
+    // Capture which items are being sent right now. After the request the
+    // server marks them all 'sent', so filtering by 'pending' afterwards
+    // would produce an empty ticket — snap the list first.
+    const itemsToSend = order.items.filter((i) => i.kitchen_status === "pending");
+    setKitchenItems(itemsToSend);
     try {
       await api.post(`/orders/${order.id}/send-to-kitchen`);
       await loadOrder();
@@ -362,7 +368,9 @@ export function OrderScreen() {
       {printMode && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-3">
           <div className="bg-sarini-panel rounded-xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto max-w-full">
-            {printMode === "kitchen" && <KitchenTicket order={order} />}
+            {printMode === "kitchen" && (
+              <KitchenTicket order={order} items={kitchenItems} servedByName={user?.name} />
+            )}
             {printMode === "receipt" && <Receipt order={order} />}
             {printMode === "new-items" && <NewItemsReceipt order={order} newItems={newItemsSincePaid} />}
             <div className="flex gap-2 mt-4">
