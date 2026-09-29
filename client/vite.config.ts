@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       // Registration is done manually in main.tsx instead of the default
       // auto-injected <script> — the desktop app (Electron) skips
       // registering a service worker at all, since installability is

@@ -4,10 +4,10 @@
 # "ngrok not active" becomes a rare, self-healing blip instead of something
 # that needs manual attention.
 
-$ngrokPath = Join-Path $env:USERPROFILE "bin\ngrok.exe"
+$ngrokPath = "C:\ngrok\ngrok.exe"
 $logPath = Join-Path $PSScriptRoot "tunnel.log"
 $errLogPath = Join-Path $PSScriptRoot "tunnel-err.log"
-$domain = "https://andra-tractable-rheba.ngrok-free.dev"
+$domain = "https://flaccid-modified-vindicate.ngrok-free.dev"
 $port = 4317
 
 # Prevent two watchdogs from ever running at once (e.g. shortcut launched
