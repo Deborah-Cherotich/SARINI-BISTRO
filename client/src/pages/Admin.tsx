@@ -3,12 +3,14 @@ import { AdminMenu } from "./admin/AdminMenu";
 import { AdminTables } from "./admin/AdminTables";
 import { AdminUsers } from "./admin/AdminUsers";
 import { AdminStock } from "./admin/AdminStock";
+import { AdminDayReport } from "./admin/AdminDayReport";
 
 const TABS = [
   { key: "menu", label: "Menu" },
   { key: "tables", label: "Tables" },
   { key: "users", label: "Users" },
   { key: "stock", label: "Stock" },
+  { key: "dayreport", label: "Day Report" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -38,6 +40,7 @@ export function Admin() {
       {tab === "tables" && <AdminTables />}
       {tab === "users" && <AdminUsers />}
       {tab === "stock" && <AdminStock />}
+      {tab === "dayreport" && <AdminDayReport />}
     </div>
   );
 }

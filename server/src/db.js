@@ -67,6 +67,18 @@ CREATE TABLE IF NOT EXISTS order_items (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS order_item_cancellations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL,
+  menu_item_id INTEGER,
+  name_snapshot TEXT NOT NULL,
+  price_snapshot REAL NOT NULL,
+  qty INTEGER NOT NULL,
+  was_sent INTEGER NOT NULL DEFAULT 0,
+  cancelled_by INTEGER REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS stock_items (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,

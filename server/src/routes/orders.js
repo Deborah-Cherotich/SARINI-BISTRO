@@ -190,15 +190,41 @@ router.patch("/:id/items/:itemId", (req, res) => {
     });
   }
 
-  if (remove) {
-    db.prepare("DELETE FROM order_items WHERE id = ?").run(item.id);
-  } else {
-    db.prepare("UPDATE order_items SET qty = ?, notes = ? WHERE id = ?").run(
-      qty ?? item.qty,
-      notes ?? item.notes,
-      item.id
-    );
-  }
+  // Removing an item (or lowering its quantity) used to leave no trace.
+  // Record it so the end-of-day report can show cancelled items.
+  const cancelledQty = remove
+    ? item.qty
+    : qty !== undefined && qty < item.qty
+    ? item.qty - qty
+    : 0;
+
+  const applyChange = db.transaction(() => {
+    if (cancelledQty > 0) {
+      db.prepare(
+        `INSERT INTO order_item_cancellations
+           (order_id, menu_item_id, name_snapshot, price_snapshot, qty, was_sent, cancelled_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        order.id,
+        item.menu_item_id,
+        item.name_snapshot,
+        item.price_snapshot,
+        cancelledQty,
+        item.kitchen_status === "sent" ? 1 : 0,
+        req.user.id
+      );
+    }
+    if (remove) {
+      db.prepare("DELETE FROM order_items WHERE id = ?").run(item.id);
+    } else {
+      db.prepare("UPDATE order_items SET qty = ?, notes = ? WHERE id = ?").run(
+        qty ?? item.qty,
+        notes ?? item.notes,
+        item.id
+      );
+    }
+  });
+  applyChange();
 
   recalcTotals(order.id);
   res.json(getOrderWithItems(order.id));
