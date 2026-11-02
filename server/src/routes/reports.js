@@ -94,7 +94,7 @@ router.get("/day-summary", (req, res) => {
 
   const waiters = db
     .prepare(
-      `SELECT COALESCE(u.name, 'Unknown') AS name, COUNT(*) AS orders, SUM(o.total) AS amount
+      `SELECT o.created_by AS id, COALESCE(u.name, 'Unknown') AS name, COUNT(*) AS orders, SUM(o.total) AS amount
        FROM orders o
        LEFT JOIN users u ON u.id = o.created_by
        WHERE o.status = 'paid' AND date(o.closed_at, 'localtime') = date(?)
@@ -218,6 +218,88 @@ router.get("/item-search", (req, res) => {
   });
 });
 
+// Waiter trace: one person's day. Totals come from the order tables (always
+// accurate); the timeline comes from activity_log, which only has entries from
+// the day activity logging was installed.
+router.get("/waiter-trace", (req, res) => {
+  const date = req.query.date || todayLocal();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+    return res.status(400).json({ error: "date must be YYYY-MM-DD" });
+  }
+  const userId = Number(req.query.user_id);
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(400).json({ error: "user_id is required" });
+  }
+  const user = db.prepare("SELECT id, name, username, role FROM users WHERE id = ?").get(userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const opened = db
+    .prepare(
+      "SELECT COUNT(*) AS c FROM orders WHERE created_by = ? AND date(created_at, 'localtime') = date(?)"
+    )
+    .get(userId, date);
+  const sales = db
+    .prepare(
+      `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS amount FROM orders
+       WHERE status = 'paid' AND created_by = ? AND date(closed_at, 'localtime') = date(?)`
+    )
+    .get(userId, date);
+  const settled = db
+    .prepare(
+      `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS amount FROM orders
+       WHERE status = 'paid' AND received_by = ? AND date(closed_at, 'localtime') = date(?)`
+    )
+    .get(userId, date);
+  const cancelled = db
+    .prepare(
+      `SELECT COUNT(*) AS items, COALESCE(SUM(price_snapshot * qty), 0) AS amount
+       FROM order_item_cancellations
+       WHERE cancelled_by = ? AND date(created_at, 'localtime') = date(?)`
+    )
+    .get(userId, date);
+  const voids = db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM activity_log
+       WHERE user_id = ? AND action = 'order_voided' AND date(created_at, 'localtime') = date(?)`
+    )
+    .get(userId, date);
+  const itemsSold = db
+    .prepare(
+      `SELECT oi.name_snapshot AS name, SUM(oi.qty) AS quantity, SUM(oi.qty * oi.price_snapshot) AS amount
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE o.status = 'paid' AND o.created_by = ? AND date(o.closed_at, 'localtime') = date(?)
+       GROUP BY oi.name_snapshot
+       ORDER BY quantity DESC, name`
+    )
+    .all(userId, date);
+  const timeline = db
+    .prepare(
+      `SELECT id, action, order_id, detail, created_at FROM activity_log
+       WHERE user_id = ? AND date(created_at, 'localtime') = date(?)
+       ORDER BY created_at, id`
+    )
+    .all(userId, date);
+
+  res.json({
+    user,
+    date,
+    summary: {
+      ordersOpened: opened.c,
+      salesOrders: sales.orders,
+      salesAmount: sales.amount,
+      settledOrders: settled.orders,
+      settledAmount: settled.amount,
+      cancelledItems: cancelled.items,
+      cancelledAmount: cancelled.amount,
+      voids: voids.c,
+      actions: timeline.length,
+    },
+    itemsSold,
+    timeline,
+  });
+});
+
 // Wipes all order/sales history so a business can go live with a clean
 // slate after testing — deliberately leaves the menu, tables, and staff
 // accounts untouched, since those are real setup work, not test data.
@@ -234,6 +316,7 @@ router.post("/reset-sales-data", (req, res) => {
     db.prepare("DELETE FROM orders").run();
     db.prepare("UPDATE tables SET status = 'free'").run();
     db.prepare("DELETE FROM order_item_cancellations").run();
+    db.prepare("DELETE FROM activity_log").run();
     db.prepare("DELETE FROM stock_movements").run();
     db.prepare("UPDATE stock_items SET quantity = 0").run();
   });

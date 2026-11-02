@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../api";
 import { formatMoney, parseServerDate } from "../../format";
 import { AdminItemSearch } from "./AdminItemSearch";
+import { AdminWaiterTrace } from "./AdminWaiterTrace";
 
 interface SoldItem {
   name: string;
@@ -11,6 +12,7 @@ interface SoldItem {
 }
 
 interface WaiterTotal {
+  id: number | null;
   name: string;
   orders: number;
   amount: number;
@@ -188,19 +190,31 @@ export function AdminDayReport() {
   const [data, setData] = useState<DaySummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [traceUserId, setTraceUserId] = useState<number | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!date) return;
     let stale = false;
     setLoading(true);
     setError("");
+    // Never show one day's numbers under another day's date.
+    setData((prev) => (prev && prev.date !== date ? null : prev));
     api
       .get<DaySummary>(`/reports/day-summary?date=${date}`)
       .then((result) => {
-        if (!stale) setData(result);
+        if (!stale) {
+          setData(result);
+          setLoadedAt(new Date());
+        }
       })
       .catch((err) => {
-        if (!stale) setError(err instanceof Error ? err.message : "Failed to load report");
+        if (!stale) {
+          // Keep the same day's numbers on a failed refresh, drop any other day's.
+          setData((prev) => (prev && prev.date === date ? prev : null));
+          setError(err instanceof Error ? err.message : "Failed to load report");
+        }
       })
       .finally(() => {
         if (!stale) setLoading(false);
@@ -208,7 +222,16 @@ export function AdminDayReport() {
     return () => {
       stale = true;
     };
-  }, [date]);
+  }, [date, refreshKey]);
+
+  // Back on this screen after more sales were rung up? Reload the numbers.
+  useEffect(() => {
+    function onFocus() {
+      setRefreshKey((k) => k + 1);
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -217,6 +240,12 @@ export function AdminDayReport() {
           <h2 className="text-white font-semibold">End-of-Day Report</h2>
           <p className="text-xs text-gray-500">
             Sales, voids and cancelled items for one day. Download it as a CSV for Excel.
+            {loadedAt && (
+              <span>
+                {" "}
+                Updated {loadedAt.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" })}.
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -227,6 +256,13 @@ export function AdminDayReport() {
             onChange={(e) => setDate(e.target.value)}
             className="rounded bg-sarini-panel-light border border-gray-700 px-2 py-1.5 text-white text-sm"
           />
+          <button
+            onClick={() => setRefreshKey((k) => k + 1)}
+            disabled={loading}
+            className="py-1.5 px-3 rounded-md border border-gray-600 text-gray-200 text-sm hover:bg-sarini-panel-light disabled:opacity-50"
+          >
+            Refresh
+          </button>
           <button
             onClick={() => data && downloadCsv(data)}
             disabled={!data || loading}
@@ -315,7 +351,8 @@ export function AdminDayReport() {
                   <tr className="text-left text-gray-400 border-b border-black/30">
                     <th className={TH}>Waiter</th>
                     <th className={`${TH} text-right`}>Orders</th>
-                    <th className="py-2 text-right">Amount</th>
+                    <th className={`${TH} text-right`}>Amount</th>
+                    <th className="py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -323,12 +360,22 @@ export function AdminDayReport() {
                     <tr key={`${w.name}-${i}`} className="border-b border-black/20">
                       <td className="py-2 pr-4 text-white">{w.name}</td>
                       <td className="py-2 pr-4 text-right text-gray-300">{w.orders}</td>
-                      <td className="py-2 text-right text-sarini-yellow">{formatMoney(w.amount)}</td>
+                      <td className="py-2 pr-4 text-right text-sarini-yellow">{formatMoney(w.amount)}</td>
+                      <td className="py-2 text-right">
+                        {w.id !== null && (
+                          <button
+                            onClick={() => setTraceUserId(w.id)}
+                            className="py-1 px-2.5 rounded-md border border-gray-600 text-gray-300 text-xs hover:bg-sarini-panel-light"
+                          >
+                            Trace
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {data.waiters.length === 0 && (
                     <tr>
-                      <td colSpan={3} className="py-3 text-gray-500">
+                      <td colSpan={4} className="py-3 text-gray-500">
                         No paid sales on this day.
                       </td>
                     </tr>
@@ -337,6 +384,8 @@ export function AdminDayReport() {
               </table>
             </div>
           </section>
+
+          <AdminWaiterTrace date={date} userId={traceUserId} onSelect={setTraceUserId} />
 
           <section className={PANEL}>
             <h3 className="text-white font-medium mb-3">Voided Sales</h3>

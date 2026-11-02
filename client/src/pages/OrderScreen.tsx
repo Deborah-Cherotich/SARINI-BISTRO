@@ -92,6 +92,13 @@ export function OrderScreen() {
     }
   }
 
+  // Printing happens in the browser, so tell the server when a receipt is
+  // printed again (fire-and-forget: it must never block printing).
+  function reprint(mode: "receipt" | "new-items") {
+    if (order) api.post(`/orders/${order.id}/print-log`, { kind: mode }).catch(() => {});
+    setPrintMode(mode);
+  }
+
   async function sendToKitchen() {
     if (!order || order.items.length === 0) return;
     // Capture which items are being sent right now. After the request the
@@ -347,7 +354,7 @@ export function OrderScreen() {
             )}
             {order.status === "paid" && newItemsSincePaid.length > 0 && (
               <button
-                onClick={() => setPrintMode("new-items")}
+                onClick={() => reprint("new-items")}
                 className="w-full py-2.5 rounded-md bg-sarini-yellow text-black font-semibold hover:bg-sarini-yellow-dark"
               >
                 Print New Items ({newItemsSincePaid.length})
@@ -355,7 +362,7 @@ export function OrderScreen() {
             )}
             {order.status === "paid" && (
               <button
-                onClick={() => setPrintMode("receipt")}
+                onClick={() => reprint("receipt")}
                 className="w-full py-2.5 rounded-md border border-gray-600 text-gray-200 hover:bg-sarini-panel-light"
               >
                 Reprint Receipt

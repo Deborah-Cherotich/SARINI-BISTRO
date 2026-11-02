@@ -1,6 +1,7 @@
 const express = require("express");
 const { db } = require("../db");
 const { authMiddleware, requireRole } = require("../middleware/auth");
+const { logActivity } = require("../activity");
 const { applyStockMovement } = require("./stock");
 
 const router = express.Router();
@@ -118,6 +119,8 @@ router.post("/", (req, res) => {
   });
 
   const orderId = tx();
+  const tableRow = table_id ? db.prepare("SELECT label FROM tables WHERE id = ?").get(table_id) : null;
+  logActivity(req.user.id, "order_opened", orderId, tableRow ? tableRow.label : "Takeaway");
   res.status(201).json(getOrderWithItems(orderId));
 });
 
@@ -164,6 +167,12 @@ router.post("/:id/items", (req, res) => {
   });
   tx();
 
+  logActivity(
+    req.user.id,
+    "item_added",
+    order.id,
+    `${qty} x ${menuItem.name}${order.status === "paid" ? " (after payment)" : ""}`
+  );
   res.status(201).json(getOrderWithItems(order.id));
 });
 
@@ -225,6 +234,14 @@ router.patch("/:id/items/:itemId", (req, res) => {
     }
   });
   applyChange();
+  if (cancelledQty > 0) {
+    logActivity(
+      req.user.id,
+      "item_cancelled",
+      order.id,
+      `${cancelledQty} x ${item.name_snapshot}${item.kitchen_status === "sent" ? " (already sent to kitchen)" : ""}`
+    );
+  }
 
   recalcTotals(order.id);
   res.json(getOrderWithItems(order.id));
@@ -233,9 +250,15 @@ router.patch("/:id/items/:itemId", (req, res) => {
 router.post("/:id/send-to-kitchen", (req, res) => {
   const order = db.prepare("SELECT * FROM orders WHERE id = ?").get(req.params.id);
   if (!order) return res.status(404).json({ error: "Order not found" });
+  const pending = db
+    .prepare("SELECT COUNT(*) AS c FROM order_items WHERE order_id = ? AND kitchen_status = 'pending'")
+    .get(order.id).c;
   db.prepare(
     "UPDATE order_items SET kitchen_status = 'sent' WHERE order_id = ? AND kitchen_status = 'pending'"
   ).run(order.id);
+  if (pending > 0) {
+    logActivity(req.user.id, "sent_to_kitchen", order.id, `${pending} item${pending === 1 ? "" : "s"}`);
+  }
   res.json(getOrderWithItems(order.id));
 });
 
@@ -280,7 +303,9 @@ router.post("/:id/checkout", (req, res) => {
   });
   tx();
 
-  res.json(getOrderWithItems(order.id));
+  const settled = getOrderWithItems(order.id);
+  logActivity(req.user.id, "order_settled", order.id, `${payment_method}, total ${settled.total}`);
+  res.json(settled);
 });
 
 router.delete("/:id", requireRole("admin"), (req, res) => {
@@ -296,6 +321,7 @@ router.delete("/:id", requireRole("admin"), (req, res) => {
   });
   tx();
 
+  logActivity(req.user.id, "order_deleted", order.id, `was ${order.status}, total ${order.total}`);
   res.status(204).end();
 });
 
@@ -328,7 +354,22 @@ router.post("/:id/void", (req, res) => {
   });
   tx();
 
-  res.json(getOrderWithItems(order.id));
+  const voided = getOrderWithItems(order.id);
+  logActivity(req.user.id, "order_voided", order.id, `total ${voided.total}`);
+  res.json(voided);
+});
+
+// The receipt is printed by the browser, so the client tells us when someone
+// reprints one — a reprint is worth being able to trace.
+router.post("/:id/print-log", (req, res) => {
+  const order = db.prepare("SELECT id FROM orders WHERE id = ?").get(req.params.id);
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  const { kind } = req.body || {};
+  const action =
+    kind === "receipt" ? "receipt_reprinted" : kind === "new-items" ? "new_items_printed" : null;
+  if (!action) return res.status(400).json({ error: "kind must be receipt or new-items" });
+  logActivity(req.user.id, action, order.id);
+  res.status(204).end();
 });
 
 module.exports = router;
